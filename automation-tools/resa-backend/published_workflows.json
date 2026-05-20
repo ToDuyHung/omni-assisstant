@@ -1,0 +1,188 @@
+[
+  {
+    "id": "wf-1776944879278",
+    "name": "CREATE VIET'S REQUEST",
+    "steps": [
+      {
+        "id": "step-1776944968078",
+        "actionId": "task-1776932145334",
+        "pageId": "dashboard",
+        "title": "[STUDIO] CREATE NEW REQ",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=New Request",
+        "locators": {
+          "semantic": "text=New Request",
+          "hint": "New Request",
+          "role": "button"
+        },
+        "overrideValue": null
+      },
+      {
+        "id": "step-1776944971030",
+        "actionId": "task-1776932193088",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] SELECT VIETNAM",
+        "executionMode": "auto",
+        "expectedAction": "select",
+        "targetQuery": "text=REQUESTS",
+        "locators": {
+          "semantic": "text=Country",
+          "hint": "Country",
+          "role": "body"
+        },
+        "overrideValue": "Vietnam"
+      },
+      {
+        "id": "step-1776944986206",
+        "actionId": "task-1776932402914",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] TYPE NAME VIET",
+        "executionMode": "auto",
+        "expectedAction": "input",
+        "targetQuery": "text=Project Contact Name\u2009*",
+        "locators": {
+          "semantic": "text=Project Contact Name",
+          "hint": "Project Contact Name",
+          "role": "combobox"
+        },
+        "overrideValue": "TRAN HOANG VIET"
+      },
+      {
+        "id": "step-1776969116202",
+        "actionId": "task-1776968757228",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] Type VIET EMAIL",
+        "executionMode": "auto",
+        "expectedAction": "input",
+        "targetQuery": "text=Project Contact Email\u2009*",
+        "locators": {
+          "semantic": "text=Project Contact Email\u2009*",
+          "hint": "Project Contact Email\u2009*",
+          "role": "combobox"
+        },
+        "overrideValue": "hoangviet.tran@stengg.com"
+      },
+      {
+        "id": "step-1776944991622",
+        "actionId": "task-1776932517408",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] Click Next",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=Next",
+        "locators": {
+          "semantic": "text=Next",
+          "hint": "Next",
+          "role": "button"
+        },
+        "overrideValue": null
+      }
+    ],
+    "isPublished": true
+  },
+  {
+    "id": "wf-1776970733786",
+    "name": "Filter Discover Project consist \"Frontend\"",
+    "steps": [
+      {
+        "id": "step-1776970805066",
+        "actionId": "task-1776970679792",
+        "pageId": "dashboard",
+        "title": "[STUDIO] Filter Discover project",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=1",
+        "locators": {
+          "semantic": "text=Discover",
+          "hint": "Discover",
+          "role": "div"
+        },
+        "overrideValue": null
+      },
+      {
+        "id": "step-1776970829988",
+        "actionId": "task-1776968058018",
+        "pageId": "dashboard",
+        "title": "[STUDIO] Search Eval",
+        "executionMode": "auto",
+        "expectedAction": "input",
+        "targetQuery": "text=Search",
+        "locators": {
+          "semantic": "text=Search",
+          "hint": "Search",
+          "role": "combobox"
+        },
+        "overrideValue": "Frontend"
+      }
+    ],
+    "isPublished": true
+  },
+  {
+    "id": "wf-1776971055705",
+    "name": "Create Solution Delivery request start on 1 June",
+    "steps": [
+      {
+        "id": "step-1776971060066",
+        "actionId": "task-1776932145334",
+        "pageId": "dashboard",
+        "title": "[STUDIO] CREATE NEW REQ",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=New Request",
+        "locators": {
+          "semantic": "text=New Request",
+          "hint": "New Request",
+          "role": "button"
+        },
+        "overrideValue": null
+      },
+      {
+        "id": "step-1776971117066",
+        "actionId": "ssd0",
+        "pageId": "wizard-step-0",
+        "title": "Select Solution Delivery",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=Solution Delivery",
+        "locators": {
+          "role": "any",
+          "context": "request type",
+          "semantic": "solution delivery"
+        },
+        "overrideValue": null
+      },
+      {
+        "id": "step-1776971122297",
+        "actionId": "task-1776932517408",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] Click Next",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=Next",
+        "locators": {
+          "semantic": "text=Next",
+          "hint": "Next",
+          "role": "button"
+        },
+        "overrideValue": null
+      },
+      {
+        "id": "step-1776971129658",
+        "actionId": "select-start-date",
+        "pageId": "wizard-step-1",
+        "title": "Select Expected Started Date",
+        "executionMode": "auto",
+        "expectedAction": "input",
+        "targetQuery": "text=Expected Started Date",
+        "locators": {
+          "role": "input",
+          "context": "Business Request Detail",
+          "semantic": "Expected Started Date"
+        },
+        "overrideValue": "01/06/2026"
+      }
+    ],
+    "isPublished": true
+  }
+]

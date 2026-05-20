@@ -1,0 +1,70 @@
+[
+  {
+    "id": "wf-1776944879278",
+    "name": "BBB",
+    "description": "Business process description...",
+    "steps": [
+      {
+        "id": "step-1776944968078",
+        "actionId": "task-1776932145334",
+        "pageId": "dashboard",
+        "title": "[STUDIO] CREATE NEW REQ",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=New Request",
+        "locators": {
+          "semantic": "text=New Request",
+          "hint": "New Request",
+          "role": "button"
+        }
+      },
+      {
+        "id": "step-1776944971030",
+        "actionId": "task-1776932193088",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] SELECT VIETNAM",
+        "executionMode": "auto",
+        "expectedAction": "select",
+        "targetQuery": "text=REQUESTS",
+        "locators": {
+          "semantic": "text=Country",
+          "hint": "Country",
+          "role": "body"
+        },
+        "overrideValue": "Vietnam"
+      },
+      {
+        "id": "step-1776944986206",
+        "actionId": "task-1776932402914",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] TYPE NAME VIET",
+        "executionMode": "auto",
+        "expectedAction": "input",
+        "targetQuery": "text=Project Contact Name *",
+        "locators": {
+          "semantic": "text=Project Contact Name",
+          "hint": "Project Contact Name",
+          "role": "combobox"
+        },
+        "overrideValue": "TRAN HOANG VIET"
+      },
+      {
+        "id": "step-1776944991622",
+        "actionId": "task-1776932517408",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] Click Next",
+        "executionMode": "auto",
+        "expectedAction": "click",
+        "targetQuery": "text=Next",
+        "locators": {
+          "semantic": "text=Next",
+          "hint": "Next",
+          "role": "button"
+        }
+      }
+    ],
+    "createdAt": 1776944879278,
+    "updatedAt": 1776948624281,
+    "isPublished": true
+  }
+]

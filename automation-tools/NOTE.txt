@@ -1,0 +1,27 @@
+npm run build && cp dist/omni-sdk.umd.cjs ../backup-chatbot/public/omni-sdk.js
+
+http://localhost:5174/requests?omni_admin=True
+
+
+real-rsvp/backup-chatbot$ npm run dev -- --port 5176
+
+resa-assist > npm run build && cp -f dist/resa-sdk.umd.cjs ../public/resa-sdk.js
+npm run build && cp -f dist/resa-sdk.umd.cjs ../public/resa-sdk.js
+
+
+How many automated guides you have?
+
+
+
+
+ỦA KHOAN KHOAN KHOAN. BẠN COPY SAI RỒI. XÁC ĐỊNH RÕ RÀNG LẠI GIÚP TÔI
+
+./backup-chatbot là UI để chạy ở port 5174 (đây là màn hình của admin, được build bwanfg cách nhúng omni bot vào web backup-chatbot, là sản phẩm thật của khách hàng)
+
+./omni-assist là UI của omni bot để tạo sdk nhúng vào ./backup-chatbot
+
+./real-rsvp/backup-chatbot là UI để chạy ở port 5176 (đây là màn hình của user, có chatbot đã được tích hợp với workflow kịch bản từ admin, được build bằng cách nhúng resa-assist vào web backup-chatbot, do đó mới có lý do 2 thư mục cùng tên là vậy)
+
+./real-rsvp/backup-chatbot/resa-assist là UI của chatbot để tạo sdk nhúng vào ./real-rsvp/backup-chatbot 
+
+./resa-backend là backend api của resa-assist
