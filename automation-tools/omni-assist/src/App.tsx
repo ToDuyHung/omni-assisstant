@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   Zap, X, Cpu, Trash2, Layout, CheckCircle2, Clock, 
-  Plus, StopCircle, Search, Save, Edit3
+  Plus, StopCircle, Search, Save, Edit3, HelpCircle, Square
 } from 'lucide-react';
 import { guideEngine, type GuideStatus } from './guide'
 import { workflowEngine, type WorkflowState } from './workflow-engine'
@@ -13,13 +13,75 @@ import type { TaskConfig, ActionNode, PageConfig } from './schema'
 
 import { BUSINESS_SITE_SCHEMA } from './schema-data';
 
+import widgetIcon from './assets/icon.png';
+import welcomeBg from './assets/welcome_bg.png';
+import botIcon from './assets/bot.svg';
+import playCircleIcon from './assets/play-circle.png';
+import widgetPng from './assets/widget.png';
+
 const configManager = studioConfig(BUSINESS_SITE_SCHEMA);
 
 type Mode = 'runtime' | 'studio' | 'workflow';
 
+interface GuidelineConfig {
+  title: string;
+  description: string;
+  howToUse: string[];
+  impact: string[];
+}
+
+const GUIDELINES: Record<Mode, GuidelineConfig> = {
+  runtime: {
+    title: 'Run Guideline',
+    description: 'Run allows admins to execute and test recorded actions in a live chatbot environment.',
+    howToUse: [
+      'Choose a recorded action from the list.',
+      'Click the Run icon to start the action.',
+      'Interact with the chatbot to verify the workflow behavior and response output.'
+    ],
+    impact: [
+      'Running an action simulates the end-user experience.',
+      'Changes made in Studio or Flow may affect how actions behave here.',
+      'This section is mainly used for testing and validation before publishing flows.'
+    ]
+  },
+  studio: {
+    title: 'Studio Guideline',
+    description: 'Studio is where admins record and manage reusable chatbot actions and interaction steps.',
+    howToUse: [
+      'Click "Record New Action" to create a new interaction recording.',
+      'Perform the desired workflow on the target page.',
+      'Save the recording to make it available for Flow creation.',
+      'Manage or delete recorded actions from the list.'
+    ],
+    impact: [
+      'Actions created here can be reused across multiple flows.',
+      'Updating an action may affect all flows using that action.',
+      'Deleted actions may cause related flows to become incomplete or unavailable.'
+    ]
+  },
+  workflow: {
+    title: 'Flow Guideline',
+    description: 'Flow allows admins to organize recorded actions into end-to-end user journeys and control their visibility.',
+    howToUse: [
+      'Click "Create New Flow" to build a new chatbot workflow.',
+      'Add and arrange recorded actions into steps.',
+      'Configure flow visibility and publish status.',
+      'Enable Visibility to make the flow available to end users.'
+    ],
+    impact: [
+      'Published flows become accessible to end users through the chatbot.',
+      'Hidden flows remain saved but are not visible to users.',
+      'Changes to a published flow may immediately affect new chatbot sessions.',
+      'Disabling visibility removes the flow from the chatbot experience.'
+    ]
+  }
+};
+
 export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('runtime');
+  const [showGuideline, setShowGuideline] = useState(false);
   const [engineState, setEngineState] = useState<WorkflowState>({ status: 'idle', currentStepIndex: 0, message: '' });
   
   const [status, setStatus] = useState<GuideStatus>('idle');
@@ -35,6 +97,7 @@ export default function App() {
   const [recordingStartPageId, setRecordingStartPageId] = useState<string | null>(null);
   const initialPages = useMemo(() => configManager.getPages(), []);
   const [pages, setPages] = useState<PageConfig[]>(initialPages);
+  const searchQuery = '';
 
   const inspector = useRef<StudioInspector | null>(null);
 
@@ -81,6 +144,16 @@ export default function App() {
   const matchingTasks = useMemo(() => {
     return currentPage?.tasks || [];
   }, [currentPage]);
+
+  const filteredTasks = useMemo(() => {
+    if (!matchingTasks) return [];
+    if (!searchQuery.trim()) return matchingTasks;
+    const q = searchQuery.toLowerCase();
+    return matchingTasks.filter(t => 
+      t.title.toLowerCase().includes(q) || 
+      (t.description && t.description.toLowerCase().includes(q))
+    );
+  }, [matchingTasks, searchQuery]);
 
   useEffect(() => {
     const cleanupGuide = guideEngine.onStateChange((state) => {
@@ -171,9 +244,10 @@ export default function App() {
   };
 
   return (
-    <div className="omni-root" style={{ fontFamily: "'Inter', sans-serif", color: 'white' }}>
+    <div className="omni-root" style={{ fontFamily: "'Manrope', sans-serif", color: 'white' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+        .omni-root, .omni-root * { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; }
         .omni-badge { background: #ff4d4d; color: white; font-size: 10px; font-weight: 800; min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; border: 2px solid #1a1a1a; }
         .omni-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 16px; transition: all 0.2s; }
         .omni-card:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.15); transform: translateY(-2px); }
@@ -186,189 +260,647 @@ export default function App() {
           70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
           100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.12);
+          border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.24);
+        }
       `}</style>
 
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          style={{
-            position: 'fixed', bottom: '24px', right: '24px',
-            width: '64px', height: '64px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(25, 118, 210, 0.4)', zIndex: 9999
-          }}
-        >
-          <Zap size={28} fill="white" />
-          {matchingTasks?.length > 0 && (
-            <div className="omni-badge" style={{ position: 'absolute', top: '-4px', right: '-4px' }}>
-              {matchingTasks.length}
-            </div>
-          )}
-        </button>
-      )}
+      <img
+        src={widgetPng}
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          width: '64px',
+          height: '64px',
+          objectFit: 'contain',
+          cursor: 'pointer',
+          zIndex: 9999,
+          filter: 'drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35))',
+          transition: 'transform 0.2s'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.06)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        alt="Omni Assist Launcher"
+      />
 
       {isOpen && (
         <div style={{
-          position: 'fixed', bottom: '24px', right: '24px',
-          width: '400px', height: '650px', borderRadius: '24px',
-          background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)',
+          position: 'fixed', bottom: '104px', right: '24px',
+          width: '620px', height: '620px', borderRadius: '24px',
+          background: `#0f172a url(${welcomeBg}) no-repeat center center / cover`,
+          border: '1px solid rgba(59, 130, 246, 0.3)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.4)', zIndex: 9999
+          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.25)',
+          zIndex: 9999
         }}>
-          <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ 
+            padding: '16px 24px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            background: 'rgba(15, 23, 42, 0.2)',
+            backdropFilter: 'blur(8px)'
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #1976d2, #42a5f5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Cpu size={18} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '15px' }}>Omni Assist</div>
-              </div>
+              <img src={widgetIcon} style={{ width: '34px', height: '34px', objectFit: 'contain' }} alt="Omni Head" />
+              <div style={{ fontWeight: 800, fontSize: '18px', color: 'white', letterSpacing: '-0.01em' }}>Omni Assist</div>
             </div>
-            <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}><X size={20} /></button>
+            <button 
+              onClick={() => setIsOpen(false)} 
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.2s' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div style={{ padding: '20px 20px 0' }}>
-            <div style={{ display: 'flex', gap: '8px', padding: '10px', background: 'rgba(0,0,0,0.4)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '24px' }}>
-              <button onClick={() => setMode('runtime')} className={`omni-btn ${mode === 'runtime' ? 'active' : ''}`} style={{ flex: 1, padding: '10px', background: mode === 'runtime' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <Zap size={16} /> <span style={{ fontSize: '12px', fontWeight: 700 }}>Run</span>
-              </button>
-              <button onClick={() => setMode('studio')} className={`omni-btn ${mode === 'studio' ? 'active' : ''}`} style={{ flex: 1, padding: '10px', background: mode === 'studio' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <Cpu size={16} /> <span style={{ fontSize: '12px', fontWeight: 700 }}>Studio</span>
-              </button>
-              <button onClick={() => setMode('workflow')} className={`omni-btn ${mode === 'workflow' ? 'active' : ''}`} style={{ flex: 1, padding: '10px', background: mode === 'workflow' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <Layout size={16} /> <span style={{ fontSize: '12px', fontWeight: 700 }}>Flow</span>
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {/* Left Column - Orbital Navigation */}
+            <div style={{ 
+              width: '220px', 
+              borderRight: 'none',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'rgba(15, 23, 42, 0.1)',
+              overflow: 'hidden'
+            }}>
+              {/* Floating shadow under robot */}
+              <div style={{
+                position: 'absolute',
+                left: '34px',
+                top: '268px',
+                width: '60px',
+                height: '14px',
+                background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0) 70%)',
+                borderRadius: '50%',
+                filter: 'blur(3px)',
+                zIndex: 1
+              }} />
+
+              {/* Character Robot */}
+              <img 
+                src={botIcon} 
+                style={{ 
+                  position: 'absolute', 
+                  left: '28px', 
+                  top: '224px', 
+                  transform: 'translateY(-50%)',
+                  width: '72px', 
+                  height: 'auto',
+                  filter: 'drop-shadow(0 10px 20px rgba(59, 130, 246, 0.35))',
+                  zIndex: 2,
+                  animation: 'omni-float 3s ease-in-out infinite'
+                }} 
+                alt="Robot Character" 
+              />
+
+              {/* Orbital Navigation Buttons */}
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                <style>{`
+                  @keyframes omni-float {
+                    0% { transform: translateY(-50%) translateY(-5px); }
+                    50% { transform: translateY(-50%) translateY(5px); }
+                    100% { transform: translateY(-50%) translateY(-5px); }
+                  }
+                  .orbital-btn {
+                    position: absolute;
+                    width: 66px;
+                    height: 66px;
+                    border-radius: 50%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    pointer-events: auto;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    backdrop-filter: blur(8px);
+                  }
+                  .orbital-btn-active {
+                    border: 2px solid #3b82f6;
+                    box-shadow: 0 0 15px rgba(59, 130, 246, 0.6), inset 0 0 10px rgba(59, 130, 246, 0.4);
+                    background: rgba(59, 130, 246, 0.15);
+                    color: #ffffff;
+                    transform: scale(1.05);
+                  }
+                  .orbital-btn-inactive {
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    background: rgba(15, 23, 42, 0.4);
+                    color: rgba(255, 255, 255, 0.55);
+                  }
+                  .orbital-btn-inactive:hover {
+                    border-color: rgba(59, 130, 246, 0.4);
+                    background: rgba(59, 130, 246, 0.05);
+                    color: white;
+                  }
+                  .action-card {
+                    background: rgba(255, 255, 255, 0.02);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 16px;
+                    padding: 16px 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                  }
+                  .action-card:hover {
+                    background: rgba(59, 130, 246, 0.05);
+                    border-color: rgba(59, 130, 246, 0.55);
+                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+                    transform: translateY(-2px);
+                  }
+                  .action-card-active {
+                    background: rgba(59, 130, 246, 0.1);
+                    border: 1.5px solid #3b82f6;
+                    border-radius: 16px;
+                    padding: 16px 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+                  }
+                `}</style>
+              </div>
+
+              {/* Orbit items */}
+              <div 
+                onClick={() => setMode('runtime')} 
+                className={`orbital-btn ${mode === 'runtime' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
+                style={{ left: '115px', top: '90px' }}
+              >
+                <Zap size={20} strokeWidth={1.5} fill={mode === 'runtime' ? '#3b82f6' : 'none'} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
+                <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Run</span>
+              </div>
+
+              <div 
+                onClick={() => setMode('studio')} 
+                className={`orbital-btn ${mode === 'studio' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
+                style={{ left: '143px', top: '185px' }}
+              >
+                <Cpu size={20} strokeWidth={1.5} style={{ filter: mode === 'studio' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
+                <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Studio</span>
+              </div>
+
+              <div 
+                onClick={() => setMode('workflow')} 
+                className={`orbital-btn ${mode === 'workflow' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
+                style={{ left: '115px', top: '280px' }}
+              >
+                <Layout size={20} strokeWidth={1.5} style={{ filter: mode === 'workflow' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
+                <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Flow</span>
+              </div>
+
+              {/* Bottom How to use */}
+              <button 
+                onClick={() => setShowGuideline(true)}
+                style={{
+                  position: 'absolute',
+                  left: '17px',
+                  bottom: '24px',
+                  width: '186px',
+                  padding: '10px 12px',
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '10px',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.45)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+                }}
+              >
+                <HelpCircle size={14} /> How to use this feature?
               </button>
             </div>
-          </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 24px' }}>
-            {mode === 'runtime' ? (
-              status === 'idle' ? (
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.3, textTransform: 'uppercase', marginBottom: '20px', letterSpacing: '0.1em' }}>Suggested Actions</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {matchingTasks.map((task: TaskConfig) => (
-                      <div key={task.id} className="omni-card" onClick={() => handleStartTask(task)} style={{ cursor: 'pointer' }}>
-                        <div style={{ fontWeight: 700, fontSize: '14px' }}>{task.title}</div>
-                        <div style={{ fontSize: '12px', opacity: 0.6 }}>{task.description}</div>
-                      </div>
-                    ))}
+            {/* Right Column - Mode Content */}
+            <div style={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              overflow: 'hidden',
+              padding: '24px',
+              background: 'rgba(15, 23, 42, 0.15)',
+              position: 'relative'
+            }}>
+              {mode === 'runtime' ? (
+                status === 'idle' ? (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.15em' }}>Recorded Actions</div>
+                    
+                    {/* List container scrollable */}
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', padding: '6px 12px 6px 4px', marginBottom: '16px' }}>
+                      {filteredTasks.map((task: TaskConfig) => {
+                        const isTaskRunning = activeTask?.id === task.id;
+                        return (
+                          <div 
+                            key={task.id} 
+                            className={isTaskRunning ? "action-card-active" : "action-card"} 
+                            onClick={() => handleStartTask(task)}
+                          >
+                            <div style={{ paddingRight: '12px' }}>
+                              <div style={{ fontWeight: 600, fontSize: '16px', color: 'rgba(255, 255, 255, 0.88)', marginBottom: '4px', lineHeight: '1.4', letterSpacing: '-0.01em' }}>{task.title}</div>
+                              <div style={{ fontSize: '13px', color: '#94a3b8', lineHeight: '1.5', fontWeight: 400 }}>{task.description}</div>
+                            </div>
+                            <div style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {isTaskRunning ? (
+                                <div style={{ 
+                                  width: '26px', 
+                                  height: '26px', 
+                                  borderRadius: '50%', 
+                                  background: 'rgba(239, 68, 68, 0.1)', 
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: '#ef4444', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s'
+                                }}>
+                                  <Square size={10} fill="currentColor" />
+                                </div>
+                              ) : (
+                                <img 
+                                  src={playCircleIcon} 
+                                  style={{ 
+                                    width: '26px', 
+                                    height: '26px', 
+                                    objectFit: 'contain', 
+                                    cursor: 'pointer', 
+                                    transition: 'all 0.2s', 
+                                    opacity: 0.85 
+                                  }} 
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                    e.currentTarget.style.opacity = '1';
+                                  }} 
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                    e.currentTarget.style.opacity = '0.85';
+                                  }} 
+                                  alt="Play" 
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filteredTasks.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '60px 20px', opacity: 0.3, fontSize: '13px' }}>
+                          No actions found for this page.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '24px', background: 'rgba(25, 118, 210, 0.08)', borderRadius: '20px', marginBottom: '20px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '16px' }}>{activeTask?.title}</div>
-                    <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px' }}>{activeTask?.steps[currentStepIndex].instruction}</div>
-                    {activeTask?.steps[currentStepIndex].expectedAction === 'input' && (
-                      <input className="omni-input" autoFocus value={draftValues[activeTask.steps[currentStepIndex].id] ?? ''} onChange={(e) => setDraftValues({ ...draftValues, [activeTask!.steps[currentStepIndex].id]: e.target.value })} />
-                    )}
-                    {activeTask?.steps[currentStepIndex].expectedAction === 'select' && (
-                      <select className="omni-input" autoFocus value={draftValues[activeTask.steps[currentStepIndex].id] ?? ''} onChange={(e) => setDraftValues({ ...draftValues, [activeTask!.steps[currentStepIndex].id]: e.target.value })} style={{ cursor: 'pointer', appearance: 'none' }}>
-                        <option value="" disabled style={{ background: '#0f172a' }}>Select an option...</option>
-                        {activeTask.steps[currentStepIndex].options?.map(opt => <option key={opt} value={opt} style={{ background: '#0f172a' }}>{opt}</option>)}
-                      </select>
-                    )}
-                  </div>
-                  <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
-                    <button onClick={() => guideEngine.stop()} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer' }}>Deny</button>
-                    <button onClick={handleExecute} style={{ flex: 2, padding: '14px', borderRadius: '12px', border: 'none', background: '#1976d2', color: 'white', fontWeight: 800, cursor: 'pointer' }}>Allow Action</button>
-                  </div>
-                </div>
-              )
-            ) : mode === 'studio' ? (
-              <div>
-                {!isRecording ? (
-                  <>
-                    <div style={{ padding: '20px', background: 'rgba(25, 118, 210, 0.05)', borderRadius: '20px', marginBottom: '24px', border: '1px solid rgba(25, 118, 210, 0.1)' }}>
-                      <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '4px' }}>Workflow Studio</div>
-                      <div style={{ fontSize: '12px', opacity: 0.5 }}>Record and manage custom automations.</div>
-                      <button onClick={startRecording} style={{ marginTop: '16px', width: '100%', padding: '12px', borderRadius: '12px', border: 'none', background: '#1976d2', color: 'white', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <Plus size={18} /> Record New Automation
+                ) : (
+                  /* RUNNING ACTIVE STEP Lifecyle */
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>Executing</div>
+                    <div style={{ padding: '24px', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '20px', marginBottom: '20px', backdropFilter: 'blur(4px)' }}>
+                      <div style={{ fontWeight: 800, fontSize: '16px', color: '#60a5fa', marginBottom: '14px' }}>{activeTask?.title}</div>
+                      <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0', marginBottom: '24px' }}>{activeTask?.steps[currentStepIndex].instruction}</div>
+                      
+                      {activeTask?.steps[currentStepIndex].expectedAction === 'input' && (
+                        <input 
+                          className="omni-input" 
+                          autoFocus 
+                          value={draftValues[activeTask.steps[currentStepIndex].id] ?? ''} 
+                          onChange={(e) => setDraftValues({ ...draftValues, [activeTask!.steps[currentStepIndex].id]: e.target.value })} 
+                          style={{
+                            width: '100%',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '10px',
+                            color: 'white',
+                            padding: '12px',
+                            boxSizing: 'border-box',
+                            outline: 'none',
+                            fontSize: '13px'
+                          }}
+                        />
+                      )}
+                      
+                      {activeTask?.steps[currentStepIndex].expectedAction === 'select' && (
+                        <select 
+                          className="omni-input" 
+                          autoFocus 
+                          value={draftValues[activeTask.steps[currentStepIndex].id] ?? ''} 
+                          onChange={(e) => setDraftValues({ ...draftValues, [activeTask!.steps[currentStepIndex].id]: e.target.value })} 
+                          style={{ 
+                            width: '100%', 
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '10px',
+                            color: 'white',
+                            padding: '12px',
+                            boxSizing: 'border-box',
+                            outline: 'none',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="" disabled style={{ background: '#0f172a' }}>Select an option...</option>
+                          {activeTask.steps[currentStepIndex].options?.map(opt => <option key={opt} value={opt} style={{ background: '#0f172a' }}>{opt}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
+                      <button 
+                        onClick={() => guideEngine.stop()} 
+                        style={{ 
+                          flex: 1, 
+                          padding: '14px', 
+                          borderRadius: '12px', 
+                          border: '1px solid rgba(239, 68, 68, 0.2)', 
+                          background: 'rgba(239, 68, 68, 0.05)', 
+                          color: '#fca5a5', 
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
+                      >
+                        Deny
+                      </button>
+                      <button 
+                        onClick={handleExecute} 
+                        style={{ 
+                          flex: 2, 
+                          padding: '14px', 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          background: 'linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)', 
+                          color: 'white', 
+                          fontWeight: 800, 
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 16px rgba(59, 130, 246, 0.4)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.4)'; }}
+                      >
+                        Allow Action
                       </button>
                     </div>
+                  </div>
+                )
+              ) : mode === 'studio' ? (
+                /* STUDIO recording mode container */
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  {!isRecording ? (
+                    <>
+                      <div style={{ padding: '20px', background: 'rgba(59, 130, 246, 0.06)', borderRadius: '20px', marginBottom: '20px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <div style={{ fontWeight: 800, fontSize: '15px', color: 'white', marginBottom: '4px' }}>Workflow Studio</div>
+                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.4' }}>Record and manage custom automations easily.</div>
+                        <button 
+                          onClick={startRecording} 
+                          style={{ 
+                            marginTop: '16px', 
+                            width: '100%', 
+                            padding: '12px', 
+                            borderRadius: '12px', 
+                            border: 'none', 
+                            background: '#3b82f6', 
+                            color: 'white', 
+                            fontWeight: 800, 
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '8px',
+                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                          }}
+                        >
+                          <Plus size={18} /> Record New Automation
+                        </button>
+                      </div>
 
-                    <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.3, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>Captured on this page</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {matchingTasks.map((task: TaskConfig) => (
-                        <div key={task.id} className="omni-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '14px' }}>{task.title}</div>
-                            <div style={{ fontSize: '11px', opacity: 0.5 }}>{task.steps.length} Step(s)</div>
-                          </div>
-                          <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', opacity: 0.6 }}>
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      ))}
-                      {matchingTasks.length === 0 && <div style={{ textAlign: 'center', padding: '40px 20px', opacity: 0.3, fontSize: '13px' }}>No recorded tasks for this page yet.</div>}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ textAlign: 'center', paddingTop: '40px' }}>
-                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', animation: 'pulse-record 2s infinite' }}>
-                      <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: '#ef4444' }} />
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: '20px', marginBottom: '8px' }}>Recording...</div>
-                    <div style={{ fontSize: '14px', opacity: 0.6, marginBottom: '32px' }}>Perform actions on the site to capture steps.</div>
-
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '20px', padding: '20px', textAlign: 'left', maxHeight: '200px', overflowY: 'auto', marginBottom: '32px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.4, marginBottom: '16px' }}>STEPS CAPTURED: {recordedSteps.length}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {recordedSteps.map((step, idx) => (
-                          <div key={step.id} style={{ fontSize: '13px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <span style={{ opacity: 0.3, fontWeight: 800 }}>{idx + 1}</span>
-                            <span style={{ fontWeight: 600 }}>{step.title}</span>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Captured on this page</div>
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                        {matchingTasks.map((task: TaskConfig) => (
+                          <div key={task.id} className="action-card" style={{ cursor: 'default' }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '14px', color: 'white' }}>{task.title}</div>
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>{task.steps.length} Step(s)</div>
+                            </div>
+                            <button 
+                              onClick={() => deleteTask(task.id)} 
+                              style={{ 
+                                width: '34px',
+                                height: '34px',
+                                borderRadius: '50%',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                color: '#ef4444', 
+                                cursor: 'pointer', 
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                flexShrink: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         ))}
+                        {matchingTasks.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '40px 20px', opacity: 0.3, fontSize: '13px' }}>
+                            No recorded tasks for this page yet.
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </>
+                  ) : (
+                    /* Recording in progress steps overlay */
+                    <div style={{ textAlign: 'center', paddingTop: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', animation: 'pulse-record 2s infinite' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#ef4444' }} />
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: '18px', color: 'white', marginBottom: '6px' }}>Recording...</div>
+                      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '20px' }}>Perform actions on the site to capture steps.</div>
 
-                    <button onClick={finishRecording} style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: '#ef4444', color: 'white', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                      <StopCircle size={20} /> Stop Recording
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : null}
+                      <div style={{ 
+                        flex: 1, 
+                        background: 'rgba(0, 0, 0, 0.2)', 
+                        borderRadius: '20px', 
+                        padding: '16px 20px', 
+                        textAlign: 'left', 
+                        overflowY: 'auto', 
+                        marginBottom: '20px', 
+                        border: '1px solid rgba(255,255,255,0.05)' 
+                      }}>
+                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginBottom: '12px', letterSpacing: '0.05em' }}>STEPS CAPTURED: {recordedSteps.length}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {recordedSteps.map((step, idx) => (
+                            <div key={step.id} style={{ fontSize: '13px', display: 'flex', gap: '12px', alignItems: 'center', color: '#e2e8f0', position: 'relative' }}>
+                              <div style={{ 
+                                width: '22px', 
+                                height: '22px', 
+                                borderRadius: '50%', 
+                                background: 'rgba(59, 130, 246, 0.1)', 
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                color: '#60a5fa',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                flexShrink: 0
+                              }}>
+                                {idx + 1}
+                              </div>
+                              <span style={{ fontWeight: 600 }}>{step.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={finishRecording} 
+                        style={{ 
+                          width: '100%', 
+                          padding: '14px', 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          background: '#ef4444', 
+                          color: 'white', 
+                          fontWeight: 800, 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '8px',
+                          boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                        }}
+                      >
+                        <StopCircle size={18} /> Stop Recording
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
 
+          {/* Absolute Review screen overlay */}
           {showReview && (
-            <div style={{ position: 'absolute', inset: 0, background: '#0f172a', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '24px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-                <Edit3 size={24} color="#1976d2" />
-                <div style={{ fontWeight: 800, fontSize: '20px' }}>Review Automation</div>
+            <div style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              background: `#0f172a url(${welcomeBg}) no-repeat center center / cover`, 
+              zIndex: 100, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              padding: '24px', 
+              overflowY: 'auto' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                <Edit3 size={24} color="#3b82f6" />
+                <div style={{ fontWeight: 800, fontSize: '20px', color: 'white' }}>Review Automation</div>
               </div>
 
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 800, opacity: 0.4, textTransform: 'uppercase' }}>Workflow Name</label>
-                <input className="omni-input" value={reviewTask.title || ''} onChange={(e) => setReviewTask({ ...reviewTask, title: e.target.value })} />
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Workflow Name</label>
+                <input 
+                  className="omni-input" 
+                  value={reviewTask.title || ''} 
+                  onChange={(e) => setReviewTask({ ...reviewTask, title: e.target.value })} 
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    padding: '12px',
+                    marginTop: '8px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
               </div>
 
-              <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.4, marginBottom: '16px', textTransform: 'uppercase' }}>Steps Captured ({reviewTask.steps?.length})</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Steps Captured ({reviewTask.steps?.length})</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
                 {reviewTask.steps?.map((step, idx) => {
                   const isUnresolved = step.title.includes('(Unresolved Label)') || step.locators?.hint === '(Unresolved Label)';
                   return (
                     <div key={step.id} style={{ 
-                      background: isUnresolved ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.03)', 
-                      padding: '20px', borderRadius: '20px', 
-                      border: isUnresolved ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(255,255,255,0.05)'
+                      background: isUnresolved ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)', 
+                      padding: '18px', 
+                      borderRadius: '16px', 
+                      border: isUnresolved ? '1.5px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.06)'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isUnresolved ? '#ef4444' : '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>{idx + 1}</div>
-                        <input style={{ background: 'none', border: 'none', color: 'white', fontWeight: 700, fontSize: '14px', width: '100%', outline: 'none' }} value={step.title} onChange={(e) => {
-                          const next = [...(reviewTask.steps || [])];
-                          next[idx] = { ...step, title: e.target.value };
-                          setReviewTask({ ...reviewTask, steps: next });
-                        }} />
-                        <button onClick={() => setReviewTask({ ...reviewTask, steps: reviewTask.steps?.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isUnresolved ? '#ef4444' : '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>{idx + 1}</div>
+                        <input 
+                          style={{ background: 'none', border: 'none', color: 'white', fontWeight: 700, fontSize: '14px', width: '100%', outline: 'none' }} 
+                          value={step.title} 
+                          onChange={(e) => {
+                            const next = [...(reviewTask.steps || [])];
+                            next[idx] = { ...step, title: e.target.value };
+                            setReviewTask({ ...reviewTask, steps: next });
+                          }} 
+                        />
+                        <button onClick={() => setReviewTask({ ...reviewTask, steps: reviewTask.steps?.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><Trash2 size={16} /></button>
                       </div>
 
                       <input 
                         className="omni-input"
-                        style={{ margin: '0 0 16px 0', fontSize: '12px', opacity: 0.8, height: '36px' }}
+                        style={{ 
+                          margin: '0 0 14px 0', 
+                          fontSize: '12px', 
+                          height: '36px',
+                          background: 'rgba(0,0,0,0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '8px',
+                          color: 'white',
+                          padding: '8px 12px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
                         value={step.instruction}
                         placeholder="Action instruction..."
                         onChange={(e) => {
@@ -378,19 +910,36 @@ export default function App() {
                         }}
                       />
 
-                      <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                           <Search size={14} color="#60a5fa" />
-                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase' }}>Stable Field Identity</span>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stable Field Identity</span>
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <input className="omni-input" style={{ marginTop: 0, height: '38px', fontSize: '13px' }} value={step.locators?.hint === '(Unresolved Label)' ? '' : step.locators?.hint} placeholder="Enter Stable Label..." onChange={(e) => {
-                            const val = e.target.value;
-                            const next = [...(reviewTask.steps || [])];
-                            next[idx] = { ...step, locators: { ...step.locators, hint: val, semantic: `text=${val}` } };
-                            setReviewTask({ ...reviewTask, steps: next });
-                          }} />
-                          <button onClick={() => (window as any).OMNI_DEBUG.testAndHighlight(step.locators?.hint, step.locators?.role)} style={{ padding: '0 12px', borderRadius: '8px', background: '#1976d2', color: 'white', fontWeight: 800, fontSize: '12px', border: 'none', cursor: 'pointer' }}>Check</button>
+                          <input 
+                            className="omni-input" 
+                            style={{ 
+                              marginTop: 0, 
+                              height: '34px', 
+                              fontSize: '12px',
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '8px',
+                              color: 'white',
+                              padding: '8px 12px',
+                              width: '100%',
+                              boxSizing: 'border-box'
+                            }} 
+                            value={step.locators?.hint === '(Unresolved Label)' ? '' : step.locators?.hint} 
+                            placeholder="Enter Stable Label..." 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const next = [...(reviewTask.steps || [])];
+                              next[idx] = { ...step, locators: { ...step.locators, hint: val, semantic: `text=${val}` } };
+                              setReviewTask({ ...reviewTask, steps: next });
+                            }} 
+                          />
+                          <button onClick={() => (window as any).OMNI_DEBUG.testAndHighlight(step.locators?.hint, step.locators?.role)} style={{ padding: '0 14px', borderRadius: '8px', background: '#3b82f6', color: 'white', fontWeight: 800, fontSize: '11px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>Check</button>
                         </div>
                       </div>
                     </div>
@@ -400,9 +949,143 @@ export default function App() {
 
               <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <button onClick={() => { setShowReview(false); visualHighlighter.clear(); }} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Discard</button>
-                <button onClick={saveReviewTask} style={{ flex: 2, padding: '14px', borderRadius: '12px', border: 'none', background: '#1976d2', color: 'white', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <button onClick={saveReviewTask} style={{ flex: 2, padding: '14px', borderRadius: '12px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)' }}>
                   <Save size={18} /> Save Automation
                 </button>
+              </div>
+            </div>
+          )}
+
+          {showGuideline && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 150,
+            }}>
+              <div style={{
+                width: '420px',
+                maxHeight: '90%',
+                overflowY: 'auto',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                padding: '24px 28px',
+                color: '#ffffff',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => setShowGuideline(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '24px',
+                    right: '24px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255, 255, 255, 0.55)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#ffffff';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.55)';
+                    e.currentTarget.style.background = 'none';
+                  }}
+                >
+                  <X size={18} />
+                </button>
+
+                 <h2 style={{
+                  fontSize: '20px',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  margin: '0 0 16px 0',
+                  lineHeight: '1.2'
+                }}>
+                  {GUIDELINES[mode].title}
+                </h2>
+
+                <p style={{
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  color: 'rgba(255, 255, 255, 0.65)',
+                  margin: '0 0 24px 0',
+                  fontWeight: 400
+                }}>
+                  {GUIDELINES[mode].description}
+                </p>
+
+                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+
+                <div style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#ffffff',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: '16px'
+                }}>
+                  How to Use
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                  {GUIDELINES[mode].howToUse.map((step, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '6px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                      <div style={{
+                        fontWeight: 700,
+                        flexShrink: 0
+                      }}>
+                        {idx + 1}.
+                      </div>
+                      <div style={{ flex: 1 }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+
+                <div style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#ffffff',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: '16px'
+                }}>
+                  Impact
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {GUIDELINES[mode].impact.map((point, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '10px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                      <div style={{
+                        color: 'rgba(255, 255, 255, 0.65)',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        lineHeight: '1',
+                        flexShrink: 0,
+                        marginTop: '-1px'
+                      }}>
+                        •
+                      </div>
+                      <div style={{ flex: 1 }}>{point}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

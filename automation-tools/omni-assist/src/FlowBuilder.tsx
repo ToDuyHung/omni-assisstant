@@ -11,6 +11,23 @@ import type { PageConfig } from './schema';
 
 const wfManager = workflowConfig();
 
+const FLOW_GUIDELINE = {
+  title: 'Flow Guideline',
+  description: 'Flow allows admins to organize recorded actions into end-to-end user journeys and control their visibility.',
+  howToUse: [
+    'Click "Create New Flow" to build a new chatbot workflow.',
+    'Add and arrange recorded actions into steps.',
+    'Configure flow visibility and publish status.',
+    'Enable Visibility to make the flow available to end users.'
+  ],
+  impact: [
+    'Published flows become accessible to end users through the chatbot.',
+    'Hidden flows remain saved but are not visible to users.',
+    'Changes to a published flow may immediately affect new chatbot sessions.',
+    'Disabling visibility removes the flow from the chatbot experience.'
+  ]
+};
+
 interface FlowBuilderProps {
   onClose: () => void;
 }
@@ -19,6 +36,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>(wfManager.getWorkflows());
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showGuideline, setShowGuideline] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
   const [engineState, setEngineState] = useState<WorkflowState>({ status: 'idle', currentStepIndex: 0, message: '' });
@@ -190,14 +208,15 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
       background: engineState.status === 'idle' ? '#020617' : 'rgba(2, 6, 23, 0.4)', 
       backdropFilter: engineState.status === 'idle' ? 'none' : 'blur(4px)',
       color: 'white',
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: "'Manrope', sans-serif",
       zIndex: 2147483647,
       display: 'flex', flexDirection: 'column',
       transition: 'all 0.5s ease',
       pointerEvents: engineState.status === 'idle' ? 'all' : 'none'
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+        .omni-admin-root, .omni-admin-root * { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; }
         .admin-btn {
           display: flex; alignItems: center; gap: 8px;
           padding: 8px 16px; border-radius: 8px; border: none;
@@ -251,7 +270,42 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
               <Layout size={20} color="white" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em' }}>Omni Flow Builder</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em' }}>Omni Flow Builder</span>
+                <button 
+                  onClick={() => setShowGuideline(true)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    outline: 'none',
+                    transition: 'all 0.2s',
+                    padding: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
+                    e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
+                  }}
+                  title="How to use Flow"
+                >
+                  ?
+                </button>
+              </div>
               <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.4, textTransform: 'uppercase' }}>Admin Console</div>
             </div>
           </div>
@@ -497,6 +551,140 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
           
           <div style={{ marginTop: '8px', fontSize: '10px', fontWeight: 800, opacity: 0.3, textAlign: 'right', textTransform: 'uppercase' }}>
             Step {engineState.currentStepIndex + 1} of {activeWorkflow?.steps.length}
+          </div>
+        </div>
+      )}
+
+      {showGuideline && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2147483647,
+        }}>
+          <div style={{
+            width: '420px',
+            maxHeight: '90%',
+            overflowY: 'auto',
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '20px',
+            padding: '24px 28px',
+            color: '#ffffff',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowGuideline(false)}
+              style={{
+                position: 'absolute',
+                top: '24px',
+                right: '24px',
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.55)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.55)';
+                e.currentTarget.style.background = 'none';
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <h2 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: '#ffffff',
+              margin: '0 0 16px 0',
+              lineHeight: '1.2'
+            }}>
+              {FLOW_GUIDELINE.title}
+            </h2>
+
+            <p style={{
+              fontSize: '13px',
+              lineHeight: '1.5',
+              color: 'rgba(255, 255, 255, 0.65)',
+              margin: '0 0 24px 0',
+              fontWeight: 400
+            }}>
+              {FLOW_GUIDELINE.description}
+            </p>
+
+            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+
+            <div style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#ffffff',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: '16px'
+            }}>
+              How to Use
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+              {FLOW_GUIDELINE.howToUse.map((step, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '6px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                  <div style={{
+                    fontWeight: 700,
+                    flexShrink: 0
+                  }}>
+                    {idx + 1}.
+                  </div>
+                  <div style={{ flex: 1 }}>{step}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+
+            <div style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#ffffff',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: '16px'
+            }}>
+              Impact
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {FLOW_GUIDELINE.impact.map((point, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '10px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                  <div style={{
+                    color: 'rgba(255, 255, 255, 0.65)',
+                    fontSize: '16px',
+                    fontWeight: 800,
+                    lineHeight: '1',
+                    flexShrink: 0,
+                    marginTop: '-1px'
+                  }}>
+                    •
+                  </div>
+                  <div style={{ flex: 1 }}>{point}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
