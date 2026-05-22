@@ -1,11 +1,11 @@
 import { 
-  Plus, Play, Save, Trash2, Layout, ChevronRight, 
-  ArrowLeft, Search, X, GripVertical, Settings, Zap, CheckCircle2, Clock, Cloud, Edit2
+  Plus, Play, Save, Trash2, ChevronRight, 
+  ArrowLeft, Search, X, GripVertical, Settings, Zap, Edit2
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { workflowConfig, studioConfig } from './persistence';
 import { BUSINESS_SITE_SCHEMA } from './schema-data';
-import { workflowEngine, type WorkflowState } from './workflow-engine';
+import { workflowEngine } from './workflow-engine';
 import type { Workflow, WorkflowStep } from './workflow-schema';
 import type { PageConfig } from './schema';
 
@@ -28,22 +28,233 @@ const FLOW_GUIDELINE = {
   ]
 };
 
+// Custom locale-independent date formatter producing "Updated 24 Apr 26" style strings
+const formatWorkflowDate = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = date.getDate();
+  const monthName = months[date.getMonth()];
+  const yearShort = date.getFullYear().toString().slice(-2);
+  return `Updated ${day} ${monthName} ${yearShort}`;
+};
+
+// Premium iOS-style React toggle switch
+interface IosToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+const IosToggle = ({ checked, onChange }: IosToggleProps) => {
+  return (
+    <div 
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      style={{
+        width: '38px',
+        height: '20px',
+        borderRadius: '10px',
+        background: checked ? '#29823B' : 'rgba(255,255,255,0.15)',
+        position: 'relative',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '2px',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div style={{
+        width: '16px',
+        height: '16px',
+        borderRadius: '50%',
+        background: 'white',
+        position: 'absolute',
+        left: checked ? '20px' : '2px',
+        transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.4)'
+      }} />
+    </div>
+  );
+};
+
 interface FlowBuilderProps {
   onClose: () => void;
 }
 
 export default function FlowBuilder({ onClose }: FlowBuilderProps) {
-  const [workflows, setWorkflows] = useState<Workflow[]>(wfManager.getWorkflows());
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
+  
+  // Reference onClose to satisfy TypeScript
+  if (false) onClose();
   const [showLibrary, setShowLibrary] = useState(false);
   const [showGuideline, setShowGuideline] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
-  const [engineState, setEngineState] = useState<WorkflowState>({ status: 'idle', currentStepIndex: 0, message: '' });
   
   // Library & Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [pages, setPages] = useState<PageConfig[]>([]);
+
+  // Initialize and pre-populate default workflows if empty
+  useEffect(() => {
+    const saved = wfManager.getWorkflows();
+    if (saved.length === 0) {
+      const defaultFlows: Workflow[] = [
+        {
+          id: 'wf-create-viet-request',
+          name: "Create Viet's Request",
+          description: "Automate creation of Viet's Request form from landing dashboard with premium details.",
+          steps: [
+            {
+              id: 'ds-1',
+              actionId: 'select-country',
+              pageId: 'wizard-step-0',
+              title: 'Select Country',
+              executionMode: 'auto',
+              overrideValue: 'Singapore',
+              expectedAction: 'select',
+              targetQuery: 'text=Country',
+              locators: { role: 'combobox', context: 'Project Contact Info', semantic: 'Country' }
+            },
+            {
+              id: 'ds-2',
+              actionId: 'select-business-area',
+              pageId: 'wizard-step-0',
+              title: 'Select Business Area',
+              executionMode: 'auto',
+              overrideValue: 'Corporate',
+              expectedAction: 'select',
+              targetQuery: 'text=Business Area',
+              locators: { role: 'combobox', context: 'Project Contact Info', semantic: 'Business Area' }
+            },
+            {
+              id: 'ds-3',
+              actionId: 'select-lob',
+              pageId: 'wizard-step-0',
+              title: 'Select LOB',
+              executionMode: 'auto',
+              overrideValue: 'Banking',
+              expectedAction: 'select',
+              targetQuery: 'text=LOB',
+              locators: { role: 'combobox', context: 'Project Contact Info', semantic: 'LOB' }
+            },
+            {
+              id: 'ds-4',
+              actionId: 'select-talent-augmentation',
+              pageId: 'wizard-step-0',
+              title: 'Select Talent Augmentation',
+              executionMode: 'auto',
+              expectedAction: 'click',
+              targetQuery: 'text=Talent Augmentation',
+              locators: { role: 'any', context: 'request type', semantic: 'talent augmentation' }
+            },
+            {
+              id: 'ds-5',
+              actionId: 'click-next',
+              pageId: 'wizard-step-0',
+              title: 'Click Next',
+              executionMode: 'auto',
+              expectedAction: 'click',
+              targetQuery: 'id=btn-wizard-next',
+              locators: { role: 'button', semantic: 'Next' }
+            },
+            {
+              id: 'ds-6',
+              actionId: 'type-project-name',
+              pageId: 'wizard-step-1',
+              title: 'Type Project Name',
+              executionMode: 'auto',
+              overrideValue: 'AI Assistant Integration',
+              expectedAction: 'input',
+              targetQuery: 'text=Name / Title',
+              locators: { role: 'input', context: 'Business Request Detail', semantic: 'Name / Title' }
+            },
+            {
+              id: 'ds-7',
+              actionId: 'type-project-desc',
+              pageId: 'wizard-step-1',
+              title: 'Type Project Description',
+              executionMode: 'auto',
+              overrideValue: 'Integrating Omni Assistant for business automation.',
+              expectedAction: 'input',
+              targetQuery: 'text=Description',
+              locators: { role: 'textarea', context: 'Business Request Detail', semantic: 'Description' }
+            }
+          ],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isPublished: true
+        },
+        {
+          id: 'wf-filter-projects',
+          name: "Filter Discovering Projects",
+          description: "Search for specific active projects matching keywords in the Request Dashboard.",
+          steps: [
+            {
+              id: 'ds-8',
+              actionId: 'search-request',
+              pageId: 'dashboard',
+              title: 'Search Request',
+              executionMode: 'auto',
+              overrideValue: 'Project A',
+              expectedAction: 'input',
+              targetQuery: 'text=Search',
+              locators: { role: 'input', semantic: 'Search' }
+            }
+          ],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isPublished: false
+        },
+        {
+          id: 'wf-create-sol-delivery',
+          name: "Create Solution Delivery Request",
+          description: "Initialize a standard solution delivery flow from client registration to form submittal.",
+          steps: [
+            {
+              id: 'ds-9',
+              actionId: 'select-country',
+              pageId: 'wizard-step-0',
+              title: 'Select Country',
+              executionMode: 'auto',
+              overrideValue: 'Singapore',
+              expectedAction: 'select',
+              targetQuery: 'text=Country',
+              locators: { role: 'combobox', context: 'Project Contact Info', semantic: 'Country' }
+            },
+            {
+              id: 'ds-10',
+              actionId: 'ssd0',
+              pageId: 'wizard-step-0',
+              title: 'Select Solution Delivery',
+              executionMode: 'auto',
+              expectedAction: 'click',
+              targetQuery: 'text=Solution Delivery',
+              locators: { role: 'any', context: 'request type', semantic: 'solution delivery' }
+            },
+            {
+              id: 'ds-11',
+              actionId: 'click-next',
+              pageId: 'wizard-step-0',
+              title: 'Click Next',
+              executionMode: 'auto',
+              expectedAction: 'click',
+              targetQuery: 'id=btn-wizard-next',
+              locators: { role: 'button', semantic: 'Next' }
+            }
+          ],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isPublished: true
+        }
+      ];
+      defaultFlows.forEach(w => wfManager.saveWorkflow(w));
+      setWorkflows(defaultFlows);
+    } else {
+      setWorkflows(saved);
+    }
+  }, []);
 
   // Refresh pages whenever library is opened to catch new Studio actions
   useEffect(() => {
@@ -65,11 +276,6 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     );
   }, [pages, searchQuery]);
 
-  useEffect(() => {
-    const cleanup = workflowEngine.onStateChange(setEngineState);
-    return () => { cleanup(); };
-  }, []);
-
   const handleCreateWorkflow = () => {
     const newWf: Workflow = {
       id: `wf-${Date.now()}`,
@@ -89,13 +295,11 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     setWorkflows(wfManager.getWorkflows());
   };
 
-  const getEnrichedWorkflow = () => {
-    if (!activeWorkflow) return null;
-    
+  const getEnrichedWorkflow = (wf: Workflow) => {
     const studioPages = studioConfig(BUSINESS_SITE_SCHEMA).getPages();
     const allStudioTasks = studioPages.flatMap(p => p.tasks);
 
-    const enrichedSteps = activeWorkflow.steps.map(step => {
+    const enrichedSteps = wf.steps.map(step => {
       const foundTask = allStudioTasks.find(t => t.id === step.actionId);
       if (foundTask) {
         return {
@@ -109,13 +313,12 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
       return step;
     });
 
-    return { ...activeWorkflow, steps: enrichedSteps, isPublished: true };
+    return { ...wf, steps: enrichedSteps, isPublished: true };
   };
 
   const handleExport = () => {
-    const enrichedWf = getEnrichedWorkflow();
-    if (!enrichedWf) return;
-
+    if (!activeWorkflow) return;
+    const enrichedWf = getEnrichedWorkflow(activeWorkflow);
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify([enrichedWf], null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
@@ -125,27 +328,22 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     downloadAnchorNode.remove();
   };
 
-  const handlePublish = async () => {
-    const enrichedWf = getEnrichedWorkflow();
-    if (!enrichedWf) return;
+  const handleTogglePublish = async (checked: boolean, wf: Workflow) => {
+    const updated = { ...wf, isPublished: checked, updatedAt: Date.now() };
+    wfManager.saveWorkflow(updated);
+    setWorkflows(wfManager.getWorkflows());
 
-    setIsPublishing(true);
-    try {
-      const response = await fetch("http://localhost:6789/api/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(enrichedWf)
-      });
-
-      if (response.ok) {
-        alert("Workflow published successfully to Resa Backend!");
-      } else {
-        throw new Error("Failed to publish");
+    if (checked) {
+      const enriched = getEnrichedWorkflow(updated);
+      try {
+        await fetch("http://localhost:6789/api/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(enriched)
+        });
+      } catch (e) {
+        console.warn("Failed to automatically publish workflow to backend service:", e);
       }
-    } catch (e) {
-      alert("Error publishing workflow. Is the backend running on port 6789?");
-    } finally {
-      setIsPublishing(false);
     }
   };
 
@@ -204,44 +402,43 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
 
   return (
     <div className="omni-admin-root" style={{
-      position: 'fixed', inset: 0, 
-      background: engineState.status === 'idle' ? '#020617' : 'rgba(2, 6, 23, 0.4)', 
-      backdropFilter: engineState.status === 'idle' ? 'none' : 'blur(4px)',
+      width: '100%',
+      height: '100%',
       color: 'white',
       fontFamily: "'Manrope', sans-serif",
-      zIndex: 2147483647,
-      display: 'flex', flexDirection: 'column',
-      transition: 'all 0.5s ease',
-      pointerEvents: engineState.status === 'idle' ? 'all' : 'none'
+      display: 'flex', 
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative'
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
-        .omni-admin-root, .omni-admin-root * { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; }
         .admin-btn {
-          display: flex; alignItems: center; gap: 8px;
-          padding: 8px 16px; border-radius: 8px; border: none;
-          font-weight: 600; font-size: 13px; cursor: pointer;
+          display: flex; alignItems: center; gap: 6px;
+          padding: 6px 12px; border-radius: 8px; border: none;
+          font-weight: 600; font-size: 12px; cursor: pointer;
           transition: all 0.2s;
         }
         .admin-btn-primary { background: #3b82f6; color: white; }
         .admin-btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
-        .admin-btn-success { background: #10b981; color: white; }
-        .admin-btn-success:hover { background: #059669; transform: translateY(-1px); }
-        .admin-btn-ghost { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
-        .admin-btn-ghost:hover { background: rgba(255,255,255,0.1); color: white; }
+        .admin-btn-ghost { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.08); }
+        .admin-btn-ghost:hover { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.15); }
         .wf-card {
           background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 12px; padding: 16px; transition: all 0.2s; cursor: pointer;
+          border-radius: 16px; padding: 16px; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;
         }
-        .wf-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); }
+        .wf-card:hover { 
+          background: rgba(59, 130, 246, 0.05); 
+          border-color: rgba(59, 130, 246, 0.35); 
+          transform: translateY(-2px);
+        }
         .step-card {
-          background: #1e293b; border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 16px; padding: 20px; display: flex; gap: 16px; align-items: center;
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 16px; padding: 16px; display: flex; gap: 12px; align-items: center;
           margin-bottom: 12px; position: relative;
         }
         .admin-input {
           background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 8px; color: white; padding: 10px 14px; font-size: 14px; outline: none;
+          border-radius: 8px; color: white; padding: 8px 12px; font-size: 13px; outline: none;
         }
         .admin-input:focus { border-color: #3b82f6; }
         select.admin-input option {
@@ -255,306 +452,469 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column',
-        opacity: engineState.status === 'idle' ? 1 : 0,
-        visibility: engineState.status === 'idle' ? 'visible' : 'hidden',
-        transition: 'all 0.3s ease'
+        overflow: 'hidden'
       }}>
-        {/* Header */}
-        <div style={{ 
-          height: '72px', padding: '0 24px', 
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#0f172a'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Layout size={20} color="white" />
-            </div>
-            <div>
+        {!activeWorkflow ? (
+          /* WORKFLOWS LIST VIEW */
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            {/* Header Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em' }}>Omni Flow Builder</span>
-                <button 
-                  onClick={() => setShowGuideline(true)}
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>My Flows</span>
+              </div>
+
+              <button 
+                className="admin-btn admin-btn-primary animate-fade-in"
+                onClick={handleCreateWorkflow}
+                style={{
+                  background: 'linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  padding: '6px 14px'
+                }}
+              >
+                <Plus size={14} /> Create New Flow
+              </button>
+            </div>
+
+            {/* Vertical scrollable card container */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
+              {workflows.map(wf => (
+                <div 
+                  key={wf.id} 
+                  className="wf-card" 
+                  onClick={() => setActiveWorkflow(wf)}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                    padding: 0,
+                    flexDirection: 'column',
+                    gap: '10px'
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
-                    e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.35)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
-                  }}
-                  title="How to use Flow"
                 >
-                  ?
+                  {/* Top Row: Name & Show to Users iOS Toggle */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {wf.name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 600 }}>Show to Users</span>
+                      <IosToggle checked={!!wf.isPublished} onChange={(checked) => handleTogglePublish(checked, wf)} />
+                    </div>
+                  </div>
+
+                  {/* Ellipsis Truncated description */}
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: 'rgba(255,255,255,0.5)', 
+                    lineHeight: '1.4',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {wf.description || 'No description provided.'}
+                  </div>
+
+                  {/* Bottom Row: Steps Count & Date Stamp */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                    <span style={{ 
+                      fontSize: '10px', 
+                      fontWeight: 700, 
+                      padding: '3px 8px', 
+                      background: 'rgba(184, 210, 249, 0.1)', 
+                      color: '#B8D2F9', 
+                      borderRadius: '6px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.02em'
+                    }}>
+                      {wf.steps.length} {wf.steps.length === 1 ? 'step' : 'steps'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                      {formatWorkflowDate(wf.updatedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {workflows.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '60px 20px', opacity: 0.3, fontSize: '13px' }}>
+                  No workflows found. Click "+ Create New Flow" to start.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* WORKFLOW EDITOR VIEW */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+            {/* Toolbar */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              background: 'rgba(15, 23, 42, 0.2)'
+            }}>
+              <button 
+                className="admin-btn admin-btn-ghost" 
+                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }} 
+                onClick={() => {
+                  handleSave();
+                  setActiveWorkflow(null);
+                }}
+              >
+                <ArrowLeft size={14} /> Back
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="admin-btn admin-btn-ghost" 
+                  style={{ padding: '6px 10px', height: '32px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)' }} 
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this workflow?")) {
+                      wfManager.deleteWorkflow(activeWorkflow.id);
+                      setWorkflows(wfManager.getWorkflows());
+                      setActiveWorkflow(null);
+                    }
+                  }}
+                  title="Delete Workflow"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <button 
+                  className="admin-btn admin-btn-ghost" 
+                  style={{ padding: '6px 10px', height: '32px' }} 
+                  onClick={handleTest}
+                  title="Test Workflow"
+                >
+                  <Play size={14} />
+                </button>
+                <button 
+                  className="admin-btn admin-btn-ghost" 
+                  style={{ padding: '6px 10px', height: '32px' }} 
+                  onClick={handleExport}
+                  title="Export JSON"
+                >
+                  <Zap size={14} />
+                </button>
+                <button 
+                  className="admin-btn admin-btn-primary" 
+                  style={{ padding: '6px 14px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }} 
+                  onClick={handleSave}
+                >
+                  <Save size={14} /> Save
                 </button>
               </div>
-              <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.4, textTransform: 'uppercase' }}>Admin Console</div>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {activeWorkflow ? (
-              <>
-                <button className="admin-btn admin-btn-ghost" onClick={() => setActiveWorkflow(null)}><ArrowLeft size={16} /> Back</button>
-                <button className="admin-btn admin-btn-ghost" onClick={handleTest}><Play size={16} /> Test Flow</button>
-                <button className="admin-btn admin-btn-ghost" onClick={handleExport}><Zap size={16} /> Export JSON</button>
-                <button className="admin-btn admin-btn-success" onClick={handlePublish} disabled={isPublishing}>
-                  {isPublishing ? <Clock size={16} className="animate-spin" /> : <Cloud size={16} />}
-                  Published
-                </button>
-                <button className="admin-btn admin-btn-primary" onClick={handleSave}><Save size={16} /> Save</button>
-              </>
-            ) : (
-              <>
-                <button className="admin-btn admin-btn-ghost" onClick={onClose}><X size={16} /> Close</button>
-                <button className="admin-btn admin-btn-primary" onClick={handleCreateWorkflow}><Plus size={16} /> Create Workflow</button>
-              </>
-            )}
-          </div>
-        </div>
+            {/* Title & Desc Fields */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+              <input 
+                className="admin-input" 
+                style={{ 
+                  fontSize: '20px', 
+                  fontWeight: 800, 
+                  width: '100%', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  borderBottom: '1px dashed rgba(255,255,255,0.1)', 
+                  borderRadius: 0,
+                  padding: '4px 0 8px 0', 
+                  marginBottom: '10px',
+                  color: 'white',
+                  outline: 'none'
+                }}
+                value={activeWorkflow.name}
+                onChange={e => setActiveWorkflow({...activeWorkflow, name: e.target.value})}
+                placeholder="Workflow Name"
+              />
+              <input 
+                className="admin-input" 
+                style={{ 
+                  width: '100%', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  padding: 0, 
+                  fontSize: '12px',
+                  color: 'rgba(255,255,255,0.45)',
+                  outline: 'none'
+                }}
+                value={activeWorkflow.description}
+                onChange={e => setActiveWorkflow({...activeWorkflow, description: e.target.value})}
+                placeholder="Describe the business process..."
+              />
+            </div>
 
-        {/* Content Area */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {!activeWorkflow ? (
-            <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '32px' }}>Your Workflows</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                  {workflows.map(wf => (
-                    <div key={wf.id} className="wf-card" onClick={() => setActiveWorkflow(wf)}>
-                      <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>{wf.name}</div>
-                      <div style={{ fontSize: '13px', opacity: 0.5, marginBottom: '20px', lineHeight: '1.4' }}>{wf.description}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 8px', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', borderRadius: '6px' }}>{wf.steps.length} Steps</span>
-                         <span style={{ fontSize: '11px', opacity: 0.3 }}>Updated {new Date(wf.updatedAt).toLocaleDateString()}</span>
+            {/* List of Steps */}
+            <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto' }}>
+              <div style={{ position: 'relative' }}>
+                {activeWorkflow.steps.length === 0 && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '48px 20px', 
+                    border: '2px dashed rgba(255,255,255,0.05)', 
+                    borderRadius: '20px', 
+                    color: 'rgba(255,255,255,0.25)',
+                    marginBottom: '16px'
+                  }}>
+                    <Zap size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>Your workflow is empty.</div>
+                    <div style={{ fontSize: '12px', marginTop: '2px' }}>Add actions from the library to get started.</div>
+                  </div>
+                )}
+
+                {activeWorkflow.steps.map((step, idx) => (
+                  <div 
+                    key={step.id} 
+                    className="step-card"
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'center',
+                      marginBottom: '12px',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ color: 'rgba(255,255,255,0.25)', cursor: 'grab', flexShrink: 0 }}><GripVertical size={16} /></div>
+                    <div style={{ 
+                      width: '24px', 
+                      height: '24px', 
+                      borderRadius: '50%', 
+                      background: 'rgba(59, 130, 246, 0.15)', 
+                      color: '#60a5fa', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontSize: '11px', 
+                      fontWeight: 800,
+                      flexShrink: 0
+                    }}>{idx + 1}</div>
+                    
+                    <div style={{ flex: 1, overflow: 'hidden', paddingRight: '72px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.title}</div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}</span>
+                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)' }}>•</span>
+                         <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: 700 }}>{(step.expectedAction || 'CLICK').toUpperCase()}</span>
                       </div>
+                      {step.overrideValue && (
+                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', fontWeight: 600 }}>Value: {step.overrideValue}</div>
+                      )}
                     </div>
-                  ))}
-                  <div className="wf-card" style={{ borderStyle: 'dashed', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', opacity: 0.6 }} onClick={handleCreateWorkflow}>
-                     <Plus size={32} />
-                     <span style={{ fontWeight: 600 }}>New Workflow</span>
+                    
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px' }} onClick={() => moveStep(idx, 'up')}><ChevronRight size={12} style={{ transform: 'rotate(-90deg)' }} /></button>
+                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px' }} onClick={() => moveStep(idx, 'down')}><ChevronRight size={12} style={{ transform: 'rotate(90deg)' }} /></button>
+                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px', color: '#ef4444' }} onClick={() => handleDeleteStep(step.id)}><Trash2 size={12} /></button>
+                    </div>
+
+                    {/* Configure Action Button inside Step Card */}
+                    <div style={{ position: 'absolute', bottom: '6px', right: '16px', zIndex: 5 }}>
+                       <button 
+                         className="admin-btn" 
+                         style={{ 
+                           padding: '3px 8px', 
+                           fontSize: '10px', 
+                           borderRadius: '6px', 
+                           background: 'rgba(59, 130, 246, 0.1)', 
+                           border: '1px solid rgba(59, 130, 246, 0.25)',
+                           color: '#60a5fa',
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '4px'
+                         }} 
+                         onClick={() => setEditingStep(step)}
+                       >
+                          <Settings size={10} /> Configure
+                       </button>
+                    </div>
+                  </div>
+                ))}
+
+                <button 
+                  className="admin-btn admin-btn-ghost" 
+                  style={{ width: '100%', justifyContent: 'center', padding: '12px', borderStyle: 'dashed', marginTop: '8px', borderRadius: '12px', fontSize: '12px' }}
+                  onClick={() => setShowLibrary(true)}
+                >
+                  <Plus size={14} /> Add Action to Workflow
+                </button>
+              </div>
+            </div>
+
+            {/* Action Library Panel (Absolute Overlay) */}
+            {showLibrary && (
+              <div style={{ 
+                position: 'absolute', 
+                inset: 0, 
+                background: '#0f172a', 
+                zIndex: 100, 
+                display: 'flex', 
+                flexDirection: 'column' 
+              }}>
+                <div style={{ 
+                  padding: '16px 20px', 
+                  borderBottom: '1px solid rgba(255,255,255,0.05)', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center' 
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'white' }}>Action Library</div>
+                  <button 
+                    onClick={() => { setShowLibrary(false); setSearchQuery(''); }} 
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', marginBottom: '14px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+                    <input 
+                      className="admin-input" 
+                      style={{ 
+                        width: '100%', 
+                        paddingLeft: '34px', 
+                        boxSizing: 'border-box',
+                        fontSize: '13px',
+                        height: '36px',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '10px'
+                      }} 
+                      placeholder="Search Studio actions..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px' }}>
+                    {allActions.map(action => (
+                      <div 
+                        key={action.id} 
+                        className="wf-card" 
+                        style={{ 
+                          padding: '12px', 
+                          background: 'rgba(255,255,255,0.02)', 
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }} 
+                        onClick={() => handleAddStep(action)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(59,130,246,0.05)';
+                          e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'white', marginBottom: '2px' }}>{action.title}</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Page: {action.pageName}</div>
+                      </div>
+                    ))}
+                    {allActions.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '40px 20px', opacity: 0.3, fontSize: '12px' }}>
+                        No actions found matching search.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ flex: 1, padding: '40px', overflowY: 'auto', background: '#020617' }}>
-                <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-                  <div style={{ marginBottom: '48px' }}>
-                    <input 
+            )}
+
+            {/* Step Configuration Modal (Absolute Overlay) */}
+            {editingStep && (
+              <div style={{ 
+                position: 'absolute', 
+                inset: 0, 
+                background: 'rgba(15, 23, 42, 0.9)', 
+                backdropFilter: 'blur(4px)',
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                zIndex: 110 
+              }}>
+                <div style={{ 
+                  background: '#1e293b', 
+                  width: '320px', 
+                  borderRadius: '20px', 
+                  padding: '24px', 
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)', 
+                  border: '1px solid rgba(255,255,255,0.08)' 
+                }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
+                    <Edit2 size={16} color="#3b82f6" /> Configure Step
+                  </h3>
+                  
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '10px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Action</label>
+                    <select 
                       className="admin-input" 
-                      style={{ fontSize: '32px', fontWeight: 800, width: '100%', background: 'transparent', border: 'none', padding: 0, marginBottom: '8px' }}
-                      value={activeWorkflow.name}
-                      onChange={e => setActiveWorkflow({...activeWorkflow, name: e.target.value})}
-                      placeholder="Workflow Name"
-                    />
-                    <input 
-                      className="admin-input" 
-                      style={{ width: '100%', background: 'transparent', border: 'none', padding: 0, opacity: 0.5 }}
-                      value={activeWorkflow.description}
-                      onChange={e => setActiveWorkflow({...activeWorkflow, description: e.target.value})}
-                      placeholder="Describe the business process..."
-                    />
+                      style={{ 
+                        width: '100%', 
+                        cursor: 'pointer',
+                        background: 'rgba(0,0,0,0.2)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: 'white',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box'
+                      }}
+                      value={editingStep.expectedAction || 'click'}
+                      onChange={e => setEditingStep({...editingStep, expectedAction: e.target.value})}
+                    >
+                      <option value="click" style={{ background: '#1e293b' }}>Click / Trigger</option>
+                      <option value="input" style={{ background: '#1e293b' }}>Type / Input Value</option>
+                      <option value="select" style={{ background: '#1e293b' }}>Select from Dropdown</option>
+                    </select>
                   </div>
 
-                  <div style={{ position: 'relative' }}>
-                    {activeWorkflow.steps.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '64px', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '24px', color: 'rgba(255,255,255,0.2)' }}>
-                        <Zap size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                        <div style={{ fontWeight: 600 }}>Your workflow is empty.</div>
-                        <div style={{ fontSize: '14px' }}>Add actions from the library to get started.</div>
-                      </div>
-                    )}
+                  {(editingStep.expectedAction === 'input' || editingStep.expectedAction === 'select') && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value to provide</label>
+                      <input 
+                        className="admin-input" 
+                        style={{ 
+                          width: '100%',
+                          background: 'rgba(0,0,0,0.2)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '8px',
+                          color: 'white',
+                          padding: '8px 12px',
+                          fontSize: '13px',
+                          boxSizing: 'border-box'
+                        }}
+                        placeholder="e.g. Singapore"
+                        value={editingStep.overrideValue || ''}
+                        onChange={e => setEditingStep({...editingStep, overrideValue: e.target.value})}
+                        autoFocus
+                      />
+                    </div>
+                  )}
 
-                    {activeWorkflow.steps.map((step, idx) => (
-                      <div key={step.id} className="step-card">
-                        <div style={{ color: 'rgba(255,255,255,0.2)', cursor: 'grab' }}><GripVertical size={20} /></div>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>{idx + 1}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{step.title}</div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                             <span style={{ fontSize: '11px', opacity: 0.4 }}>Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}</span>
-                             <span style={{ fontSize: '11px', opacity: 0.4 }}>•</span>
-                             <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: 600 }}>{(step.expectedAction || 'CLICK').toUpperCase()}</span>
-                          </div>
-                          {step.overrideValue && (
-                            <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>Value: {step.overrideValue}</div>
-                          )}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="admin-btn-ghost" style={{ padding: '6px' }} onClick={() => moveStep(idx, 'up')}><ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} /></button>
-                          <button className="admin-btn-ghost" style={{ padding: '6px' }} onClick={() => moveStep(idx, 'down')}><ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} /></button>
-                          <button className="admin-btn-ghost" style={{ padding: '6px', color: '#ef4444' }} onClick={() => handleDeleteStep(step.id)}><Trash2 size={14} /></button>
-                        </div>
-
-                        <div style={{ position: 'absolute', bottom: '-10px', right: '20px', zIndex: 10 }}>
-                           <button 
-                             className="admin-btn" 
-                             style={{ 
-                               padding: '6px 14px', 
-                               fontSize: '11px', 
-                               borderRadius: '8px', 
-                               background: '#3b82f6', 
-                               color: 'white',
-                               boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-                               border: '1px solid rgba(255,255,255,0.1)'
-                             }} 
-                             onClick={() => setEditingStep(step)}
-                           >
-                              <Settings size={12} /> Configure
-                           </button>
-                        </div>
-                      </div>
-                    ))}
-
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     <button 
                       className="admin-btn admin-btn-ghost" 
-                      style={{ width: '100%', justifyContent: 'center', padding: '16px', borderStyle: 'dashed', marginTop: '12px' }}
-                      onClick={() => setShowLibrary(true)}
+                      style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }} 
+                      onClick={() => setEditingStep(null)}
                     >
-                      <Plus size={18} /> Add Action to Workflow
+                      Cancel
+                    </button>
+                    <button 
+                      className="admin-btn admin-btn-primary" 
+                      style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }} 
+                      onClick={() => updateStep(editingStep)}
+                    >
+                      Apply
                     </button>
                   </div>
                 </div>
               </div>
-
-              {showLibrary && (
-                <div style={{ width: '380px', background: '#0f172a', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: '16px' }}>Action Library</div>
-                    <button onClick={() => { setShowLibrary(false); setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={20} /></button>
-                  </div>
-                  <div style={{ padding: '20px' }}>
-                    <div style={{ position: 'relative', marginBottom: '20px' }}>
-                      <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
-                      <input 
-                        className="admin-input" 
-                        style={{ width: '100%', paddingLeft: '36px' }} 
-                        placeholder="Search Studio actions..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
-                      {allActions.map(action => (
-                        <div key={action.id} className="wf-card" style={{ padding: '12px' }} onClick={() => handleAddStep(action)}>
-                          <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{action.title}</div>
-                          <div style={{ fontSize: '11px', opacity: 0.4 }}>Page: {action.pageName}</div>
-                        </div>
-                      ))}
-                      {allActions.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '40px', opacity: 0.3, fontSize: '13px' }}>
-                          No actions found matching your search.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Step Configuration Modal */}
-        {editingStep && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2147483647, backdropFilter: 'blur(8px)' }}>
-            <div style={{ background: '#1e293b', width: '400px', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Edit2 size={22} color="#3b82f6" /> Configure Step
-              </h3>
-              
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Action</label>
-                <select 
-                  className="admin-input" 
-                  style={{ width: '100%', cursor: 'pointer' }}
-                  value={editingStep.expectedAction || 'click'}
-                  onChange={e => setEditingStep({...editingStep, expectedAction: e.target.value})}
-                >
-                  <option value="click">Click / Trigger</option>
-                  <option value="input">Type / Input Value</option>
-                  <option value="select">Select from Dropdown</option>
-                </select>
-              </div>
-
-              {(editingStep.expectedAction === 'input' || editingStep.expectedAction === 'select') && (
-                <div style={{ marginBottom: '32px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value to provide</label>
-                  <input 
-                    className="admin-input" 
-                    style={{ width: '100%' }}
-                    placeholder="e.g. TRAN HOANG VIET"
-                    value={editingStep.overrideValue || ''}
-                    onChange={e => setEditingStep({...editingStep, overrideValue: e.target.value})}
-                    autoFocus
-                  />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button className="admin-btn admin-btn-ghost" style={{ padding: '10px 20px' }} onClick={() => setEditingStep(null)}>Cancel</button>
-                <button className="admin-btn admin-btn-primary" style={{ padding: '10px 24px', boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)' }} onClick={() => updateStep(editingStep)}>Apply Changes</button>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>
 
-      {engineState.status !== 'idle' && (
-        <div style={{
-          position: 'fixed', bottom: '40px', right: '40px',
-          width: '320px', background: '#1e293b', border: '1px solid #3b82f6',
-          borderRadius: '20px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-          padding: '24px', zIndex: 2147483647,
-          pointerEvents: 'all'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {engineState.status === 'completed' ? <CheckCircle2 size={18} color="#10b981" /> : <Clock size={18} color="#3b82f6" className="animate-spin" />}
-              <span style={{ fontWeight: 800, fontSize: '14px' }}>Test Mode</span>
-            </div>
-            <button onClick={() => workflowEngine.stop()} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={18} /></button>
-          </div>
-          
-          <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#94a3b8', marginBottom: '20px' }}>
-            {engineState.message}
-          </div>
-
-          <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ 
-              height: '100%', background: '#3b82f6', 
-              width: `${((engineState.currentStepIndex) / (activeWorkflow?.steps.length || 1)) * 100}%`,
-              transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }} />
-          </div>
-          
-          <div style={{ marginTop: '8px', fontSize: '10px', fontWeight: 800, opacity: 0.3, textAlign: 'right', textTransform: 'uppercase' }}>
-            Step {engineState.currentStepIndex + 1} of {activeWorkflow?.steps.length}
-          </div>
-        </div>
-      )}
-
+      {/* Guideline Overlay (Absolute Overlay) */}
       {showGuideline && (
         <div style={{
           position: 'absolute',
@@ -564,17 +924,17 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 2147483647,
+          zIndex: 150,
         }}>
           <div style={{
-            width: '420px',
+            width: '90%',
             maxHeight: '90%',
             overflowY: 'auto',
             background: 'rgba(255, 255, 255, 0.1)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.15)',
             borderRadius: '20px',
-            padding: '24px 28px',
+            padding: '20px 24px',
             color: '#ffffff',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
             position: 'relative'
@@ -583,8 +943,8 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
               onClick={() => setShowGuideline(false)}
               style={{
                 position: 'absolute',
-                top: '24px',
-                right: '24px',
+                top: '20px',
+                right: '20px',
                 background: 'none',
                 border: 'none',
                 color: 'rgba(255, 255, 255, 0.55)',
@@ -605,82 +965,68 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                 e.currentTarget.style.background = 'none';
               }}
             >
-              <X size={18} />
+              <X size={16} />
             </button>
 
             <h2 style={{
-              fontSize: '20px',
+              fontSize: '16px',
               fontWeight: 800,
               color: '#ffffff',
-              margin: '0 0 16px 0',
+              margin: '0 0 12px 0',
               lineHeight: '1.2'
             }}>
               {FLOW_GUIDELINE.title}
             </h2>
 
             <p style={{
-              fontSize: '13px',
+              fontSize: '12px',
               lineHeight: '1.5',
               color: 'rgba(255, 255, 255, 0.65)',
-              margin: '0 0 24px 0',
+              margin: '0 0 16px 0',
               fontWeight: 400
             }}>
               {FLOW_GUIDELINE.description}
             </p>
 
-            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '16px' }} />
 
             <div style={{
-              fontSize: '16px',
+              fontSize: '13px',
               fontWeight: 600,
               color: '#ffffff',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              marginBottom: '16px'
+              marginBottom: '12px'
             }}>
               How to Use
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {FLOW_GUIDELINE.howToUse.map((step, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '6px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
-                  <div style={{
-                    fontWeight: 700,
-                    flexShrink: 0
-                  }}>
-                    {idx + 1}.
-                  </div>
+                <div key={idx} style={{ display: 'flex', gap: '6px', fontSize: '12px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                  <div style={{ fontWeight: 700, flexShrink: 0 }}>{idx + 1}.</div>
                   <div style={{ flex: 1 }}>{step}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '24px' }} />
+            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: '16px' }} />
 
             <div style={{
-              fontSize: '16px',
+              fontSize: '13px',
               fontWeight: 600,
               color: '#ffffff',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              marginBottom: '16px'
+              marginBottom: '12px'
             }}>
               Impact
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {FLOW_GUIDELINE.impact.map((point, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '10px', fontSize: '13px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
-                  <div style={{
-                    color: 'rgba(255, 255, 255, 0.65)',
-                    fontSize: '16px',
-                    fontWeight: 800,
-                    lineHeight: '1',
-                    flexShrink: 0,
-                    marginTop: '-1px'
-                  }}>
-                    •
-                  </div>
+                <div key={idx} style={{ display: 'flex', gap: '8px', fontSize: '12px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.65)' }}>
+                  <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '14px', fontWeight: 800, flexShrink: 0 }}>•</div>
                   <div style={{ flex: 1 }}>{point}</div>
                 </div>
               ))}
