@@ -19,21 +19,6 @@
         "overrideValue": null
       },
       {
-        "id": "step-1776944971030",
-        "actionId": "task-1776932193088",
-        "pageId": "wizard-step-0",
-        "title": "[STUDIO] SELECT VIETNAM",
-        "executionMode": "auto",
-        "expectedAction": "select",
-        "targetQuery": "text=REQUESTS",
-        "locators": {
-          "semantic": "text=Country",
-          "hint": "Country",
-          "role": "body"
-        },
-        "overrideValue": "Vietnam"
-      },
-      {
         "id": "step-1776944986206",
         "actionId": "task-1776932402914",
         "pageId": "wizard-step-0",
@@ -47,6 +32,21 @@
           "role": "combobox"
         },
         "overrideValue": "TRAN HOANG VIET"
+      },
+      {
+        "id": "step-1776944971030",
+        "actionId": "task-1776932193088",
+        "pageId": "wizard-step-0",
+        "title": "[STUDIO] SELECT VIETNAM",
+        "executionMode": "auto",
+        "expectedAction": "select",
+        "targetQuery": "text=REQUESTS",
+        "locators": {
+          "semantic": "text=Country",
+          "hint": "Country",
+          "role": "body"
+        },
+        "overrideValue": "Vietnam"
       },
       {
         "id": "step-1776969116202",
@@ -183,6 +183,12 @@
         "overrideValue": "01/06/2026"
       }
     ],
+    "isPublished": true
+  },
+  {
+    "id": "wf-1779435451248",
+    "name": "Untitled Workflow",
+    "steps": [],
     "isPublished": true
   }
 ]

@@ -1,11 +1,11 @@
 import { 
-  Plus, Play, Save, Trash2, ChevronRight, 
-  ArrowLeft, Search, X, GripVertical, Settings, Zap, Edit2
+  Plus, Trash2, 
+  Search, X, Settings, Zap, Edit2, ArrowLeft
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { workflowConfig, studioConfig } from './persistence';
 import { BUSINESS_SITE_SCHEMA } from './schema-data';
-import { workflowEngine } from './workflow-engine';
+// import { workflowEngine } from './workflow-engine';
 import type { Workflow, WorkflowStep } from './workflow-schema';
 import type { PageConfig } from './schema';
 
@@ -85,12 +85,21 @@ interface FlowBuilderProps {
 export default function FlowBuilder({ onClose }: FlowBuilderProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
+  const [originalWorkflow, setOriginalWorkflow] = useState<string | null>(null);
+
+  const hasChanges = useMemo(() => {
+    if (!activeWorkflow || !originalWorkflow) return false;
+    return JSON.stringify(activeWorkflow) !== originalWorkflow;
+  }, [activeWorkflow, originalWorkflow]);
   
   // Reference onClose to satisfy TypeScript
   if (false) onClose();
   const [showLibrary, setShowLibrary] = useState(false);
   const [showGuideline, setShowGuideline] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const isDragHandlePressed = useRef(false);
   
   // Library & Search States
   const [searchQuery, setSearchQuery] = useState('');
@@ -287,12 +296,27 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
       isPublished: false
     };
     setActiveWorkflow(newWf);
+    setOriginalWorkflow(JSON.stringify(newWf));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!activeWorkflow) return;
-    wfManager.saveWorkflow(activeWorkflow);
+    const updated = { ...activeWorkflow, updatedAt: Date.now() };
+    wfManager.saveWorkflow(updated);
     setWorkflows(wfManager.getWorkflows());
+
+    if (updated.isPublished) {
+      const enriched = getEnrichedWorkflow(updated);
+      try {
+        await fetch("http://localhost:6789/api/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(enriched)
+        });
+      } catch (e) {
+        console.warn("Failed to automatically publish workflow to backend service:", e);
+      }
+    }
   };
 
   const getEnrichedWorkflow = (wf: Workflow) => {
@@ -316,6 +340,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     return { ...wf, steps: enrichedSteps, isPublished: true };
   };
 
+  /*
   const handleExport = () => {
     if (!activeWorkflow) return;
     const enrichedWf = getEnrichedWorkflow(activeWorkflow);
@@ -327,6 +352,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
+  */
 
   const handleTogglePublish = async (checked: boolean, wf: Workflow) => {
     const updated = { ...wf, isPublished: checked, updatedAt: Date.now() };
@@ -385,20 +411,24 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     });
   };
 
-  const moveStep = (index: number, direction: 'up' | 'down') => {
+  const swapSteps = (fromIndex: number, toIndex: number) => {
     if (!activeWorkflow) return;
+    if (fromIndex < 0 || fromIndex >= activeWorkflow.steps.length) return;
+    if (toIndex < 0 || toIndex >= activeWorkflow.steps.length) return;
+    if (fromIndex === toIndex) return;
+
     const next = [...activeWorkflow.steps];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= next.length) return;
-    
-    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    const [draggedItem] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, draggedItem);
     setActiveWorkflow({ ...activeWorkflow, steps: next });
   };
 
+  /*
   const handleTest = () => {
     if (!activeWorkflow) return;
     workflowEngine.start(activeWorkflow);
   };
+  */
 
   return (
     <div className="omni-admin-root" style={{
@@ -445,6 +475,14 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
           background: #1e293b;
           color: white;
         }
+        @keyframes slideInDrop {
+          from { height: 0; opacity: 0; margin-bottom: 0; }
+          to { height: 4px; opacity: 1; margin-bottom: 12px; }
+        }
+        @keyframes slideInDropBottom {
+          from { height: 0; opacity: 0; margin-top: 0; }
+          to { height: 4px; opacity: 1; margin-top: 12px; }
+        }
       `}</style>
 
       {/* Main Content */}
@@ -482,7 +520,10 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                 <div 
                   key={wf.id} 
                   className="wf-card" 
-                  onClick={() => setActiveWorkflow(wf)}
+                  onClick={() => {
+                    setActiveWorkflow(wf);
+                    setOriginalWorkflow(JSON.stringify(wf));
+                  }}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -491,7 +532,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                 >
                   {/* Top Row: Name & Show to Users iOS Toggle */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '15px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                       {wf.name}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -541,108 +582,130 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
           </div>
         ) : (
           /* WORKFLOW EDITOR VIEW */
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-            {/* Toolbar */}
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden', 
+            position: 'relative',
+            background: 'rgba(15, 23, 42, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            margin: '16px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)'
+          }}>
+            {/* Header / Toolbar Row */}
             <div style={{ 
               display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
-              background: 'rgba(15, 23, 42, 0.2)'
+              gap: '16px', 
+              alignItems: 'flex-start', 
+              padding: '24px 24px 12px 24px'
             }}>
+              {/* Back Button */}
               <button 
-                className="admin-btn admin-btn-ghost" 
-                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }} 
+                className="admin-btn-ghost" 
+                style={{ 
+                  width: '36px', 
+                  height: '36px', 
+                  borderRadius: '8px', 
+                  border: '1px solid rgba(255,255,255,0.12)', 
+                  background: 'rgba(255,255,255,0.02)',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'white',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                  padding: 0
+                }} 
                 onClick={() => {
-                  handleSave();
                   setActiveWorkflow(null);
+                  setOriginalWorkflow(null);
                 }}
               >
-                <ArrowLeft size={14} /> Back
+                <ArrowLeft size={16} />
               </button>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  className="admin-btn admin-btn-ghost" 
-                  style={{ padding: '6px 10px', height: '32px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)' }} 
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this workflow?")) {
-                      wfManager.deleteWorkflow(activeWorkflow.id);
-                      setWorkflows(wfManager.getWorkflows());
-                      setActiveWorkflow(null);
-                    }
+              {/* Header Title, Toggle & Actions Column */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* Title and Controls Row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <input 
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 600,
+                      color: 'white',
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      padding: 0,
+                      margin: 0,
+                      width: '60%',
+                      fontFamily: 'inherit'
+                    }}
+                    value={activeWorkflow.name}
+                    onChange={e => setActiveWorkflow({...activeWorkflow, name: e.target.value})}
+                    placeholder="Workflow Name"
+                  />
+
+                  {/* Right side controls: Show to Users toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'white' }}>Show to Users</span>
+                    <IosToggle 
+                      checked={!!activeWorkflow.isPublished} 
+                      onChange={(checked) => {
+                        const updated = { ...activeWorkflow, isPublished: checked, updatedAt: Date.now() };
+                        setActiveWorkflow(updated);
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* Description Row */}
+                <input 
+                  style={{
+                    fontSize: '13px',
+                    color: 'rgba(255,255,255,0.5)',
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    padding: 0,
+                    margin: 0,
+                    width: '100%',
+                    fontFamily: 'inherit'
                   }}
-                  title="Delete Workflow"
-                >
-                  <Trash2 size={14} />
-                </button>
-                <button 
-                  className="admin-btn admin-btn-ghost" 
-                  style={{ padding: '6px 10px', height: '32px' }} 
-                  onClick={handleTest}
-                  title="Test Workflow"
-                >
-                  <Play size={14} />
-                </button>
-                <button 
-                  className="admin-btn admin-btn-ghost" 
-                  style={{ padding: '6px 10px', height: '32px' }} 
-                  onClick={handleExport}
-                  title="Export JSON"
-                >
-                  <Zap size={14} />
-                </button>
-                <button 
-                  className="admin-btn admin-btn-primary" 
-                  style={{ padding: '6px 14px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }} 
-                  onClick={handleSave}
-                >
-                  <Save size={14} /> Save
-                </button>
+                  value={activeWorkflow.description}
+                  onChange={e => setActiveWorkflow({...activeWorkflow, description: e.target.value})}
+                  placeholder="Describe the business process..."
+                />
               </div>
             </div>
 
-            {/* Title & Desc Fields */}
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-              <input 
-                className="admin-input" 
-                style={{ 
-                  fontSize: '20px', 
-                  fontWeight: 800, 
-                  width: '100%', 
-                  background: 'transparent', 
-                  border: 'none', 
-                  borderBottom: '1px dashed rgba(255,255,255,0.1)', 
-                  borderRadius: 0,
-                  padding: '4px 0 8px 0', 
-                  marginBottom: '10px',
-                  color: 'white',
-                  outline: 'none'
-                }}
-                value={activeWorkflow.name}
-                onChange={e => setActiveWorkflow({...activeWorkflow, name: e.target.value})}
-                placeholder="Workflow Name"
-              />
-              <input 
-                className="admin-input" 
-                style={{ 
-                  width: '100%', 
-                  background: 'transparent', 
-                  border: 'none', 
-                  padding: 0, 
-                  fontSize: '12px',
-                  color: 'rgba(255,255,255,0.45)',
-                  outline: 'none'
-                }}
-                value={activeWorkflow.description}
-                onChange={e => setActiveWorkflow({...activeWorkflow, description: e.target.value})}
-                placeholder="Describe the business process..."
-              />
-            </div>
-
             {/* List of Steps */}
-            <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto' }}>
+            <div 
+              style={{ flex: 1, padding: '12px 24px', overflowY: 'auto' }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (draggedIdx !== null) {
+                  const containerRect = e.currentTarget.getBoundingClientRect();
+                  const relativeY = e.clientY - containerRect.top + e.currentTarget.scrollTop;
+                  const hoverIdx = Math.floor((relativeY - 12) / 86);
+                  const targetIdx = Math.max(0, Math.min(activeWorkflow.steps.length - 1, hoverIdx));
+                  if (dragOverIdx !== targetIdx) {
+                    setDragOverIdx(targetIdx);
+                  }
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedIdx !== null && dragOverIdx !== null && draggedIdx !== dragOverIdx) {
+                  swapSteps(draggedIdx, dragOverIdx);
+                }
+                setDraggedIdx(null);
+                setDragOverIdx(null);
+              }}
+            >
               <div style={{ position: 'relative' }}>
                 {activeWorkflow.steps.length === 0 && (
                   <div style={{ 
@@ -659,82 +722,314 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                   </div>
                 )}
 
-                {activeWorkflow.steps.map((step, idx) => (
-                  <div 
-                    key={step.id} 
-                    className="step-card"
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      alignItems: 'center',
-                      marginBottom: '12px',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ color: 'rgba(255,255,255,0.25)', cursor: 'grab', flexShrink: 0 }}><GripVertical size={16} /></div>
-                    <div style={{ 
-                      width: '24px', 
-                      height: '24px', 
-                      borderRadius: '50%', 
-                      background: 'rgba(59, 130, 246, 0.15)', 
-                      color: '#60a5fa', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      fontSize: '11px', 
-                      fontWeight: 800,
-                      flexShrink: 0
-                    }}>{idx + 1}</div>
-                    
-                    <div style={{ flex: 1, overflow: 'hidden', paddingRight: '72px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.title}</div>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
-                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}</span>
-                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)' }}>•</span>
-                         <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: 700 }}>{(step.expectedAction || 'CLICK').toUpperCase()}</span>
+                {activeWorkflow.steps.map((step, idx) => {
+                  const isDraggingThis = draggedIdx === idx;
+                  const isDragOverThis = dragOverIdx === idx;
+                  
+                  let translateY = 0;
+                  if (draggedIdx !== null && dragOverIdx !== null) {
+                    if (idx === draggedIdx) {
+                      translateY = (dragOverIdx - draggedIdx) * 86;
+                    } else {
+                      if (draggedIdx < dragOverIdx) {
+                        if (idx > draggedIdx && idx <= dragOverIdx) {
+                          translateY = -86;
+                        }
+                      } else {
+                        if (idx < draggedIdx && idx >= dragOverIdx) {
+                          translateY = 86;
+                        }
+                      }
+                    }
+                  }
+
+                  return (
+                    <div 
+                      key={step.id} 
+                      style={{ 
+                        position: 'relative',
+                        transform: `translateY(${translateY}px)`,
+                        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        zIndex: isDraggingThis ? 10 : 1
+                      }}
+                    >
+                      <div 
+                        className="step-card"
+                        draggable={true}
+                        onMouseDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          isDragHandlePressed.current = !!target.closest('[data-drag-handle="true"]');
+                        }}
+                        onTouchStart={(e) => {
+                          const target = e.target as HTMLElement;
+                          isDragHandlePressed.current = !!target.closest('[data-drag-handle="true"]');
+                        }}
+                        onDragStart={(e) => {
+                          if (!isDragHandlePressed.current) {
+                            e.preventDefault();
+                            return;
+                          }
+                          setDraggedIdx(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => {
+                          setDraggedIdx(null);
+                          setDragOverIdx(null);
+                          isDragHandlePressed.current = false;
+                        }}
+                        style={{
+                          display: 'flex',
+                          gap: '16px',
+                          alignItems: 'center',
+                          marginBottom: '12px',
+                          position: 'relative',
+                          background: isDraggingThis 
+                            ? (dragOverIdx !== null ? 'rgba(59, 130, 246, 0.04)' : 'rgba(255, 255, 255, 0.01)') 
+                            : isDragOverThis 
+                              ? 'rgba(59, 130, 246, 0.02)' 
+                              : 'rgba(255, 255, 255, 0.03)',
+                          border: isDraggingThis 
+                            ? (dragOverIdx !== null ? '2px dashed rgba(59, 130, 246, 0.6)' : '1px dashed rgba(255, 255, 255, 0.1)') 
+                            : isDragOverThis 
+                              ? '1px solid rgba(59, 130, 246, 0.25)' 
+                              : '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '16px',
+                          padding: '16px',
+                          opacity: isDraggingThis ? 0.6 : 1,
+                          transform: isDragOverThis ? 'scale(1.005)' : 'scale(1)',
+                          boxShadow: isDraggingThis && dragOverIdx !== null 
+                            ? '0 0 16px rgba(59, 130, 246, 0.15)' 
+                            : isDragOverThis 
+                              ? '0 4px 12px rgba(59, 130, 246, 0.08)' 
+                              : 'none',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          cursor: 'default',
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none'
+                        }}
+                      >
+                        {/* Drag Handle Icon (=) */}
+                        <div 
+                          data-drag-handle="true"
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '3px', 
+                            width: '12px', 
+                            opacity: 0.35, 
+                            cursor: 'grab',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
+                          <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
+                        </div>
+
+                        {/* Step Number Circle */}
+                        <div 
+                          draggable={false}
+                          style={{ 
+                            width: '32px', 
+                            height: '32px', 
+                            borderRadius: '50%', 
+                            background: 'rgba(59, 130, 246, 0.12)', 
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            color: '#B8D2F9', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '13px', 
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}
+                        >
+                          {idx + 1}
+                        </div>
+                        
+                        {/* Step Name & Sub-label */}
+                        <div style={{ flex: 1, overflow: 'hidden', paddingRight: '12px' }}>
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {step.title}
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>·</span>
+                            <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: 600 }}>
+                              {(step.expectedAction || 'CLICK').toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons: Configure & Delete */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <button 
+                            className="admin-btn-ghost" 
+                            style={{ 
+                              width: '32px', 
+                              height: '32px', 
+                              borderRadius: '8px', 
+                              border: '1px solid rgba(255,255,255,0.12)', 
+                              background: 'rgba(255,255,255,0.02)',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              color: 'white',
+                              transition: 'all 0.2s',
+                              padding: 0
+                            }} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingStep(step);
+                            }}
+                          >
+                            <Settings size={14} />
+                          </button>
+                          <button 
+                            className="admin-btn-ghost" 
+                            style={{ 
+                              border: 'none', 
+                              background: 'none', 
+                              cursor: 'pointer', 
+                              color: 'rgba(255,255,255,0.4)',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              padding: '6px',
+                              transition: 'all 0.2s'
+                            }} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStep(step.id);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                      {step.overrideValue && (
-                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', fontWeight: 600 }}>Value: {step.overrideValue}</div>
-                      )}
                     </div>
-                    
-                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px' }} onClick={() => moveStep(idx, 'up')}><ChevronRight size={12} style={{ transform: 'rotate(-90deg)' }} /></button>
-                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px' }} onClick={() => moveStep(idx, 'down')}><ChevronRight size={12} style={{ transform: 'rotate(90deg)' }} /></button>
-                      <button className="admin-btn-ghost" style={{ padding: '4px', borderRadius: '6px', color: '#ef4444' }} onClick={() => handleDeleteStep(step.id)}><Trash2 size={12} /></button>
-                    </div>
+                  );
+                })}
 
-                    {/* Configure Action Button inside Step Card */}
-                    <div style={{ position: 'absolute', bottom: '6px', right: '16px', zIndex: 5 }}>
-                       <button 
-                         className="admin-btn" 
-                         style={{ 
-                           padding: '3px 8px', 
-                           fontSize: '10px', 
-                           borderRadius: '6px', 
-                           background: 'rgba(59, 130, 246, 0.1)', 
-                           border: '1px solid rgba(59, 130, 246, 0.25)',
-                           color: '#60a5fa',
-                           display: 'flex',
-                           alignItems: 'center',
-                           gap: '4px'
-                         }} 
-                         onClick={() => setEditingStep(step)}
-                       >
-                          <Settings size={10} /> Configure
-                       </button>
-                    </div>
-                  </div>
-                ))}
-
-                <button 
-                  className="admin-btn admin-btn-ghost" 
-                  style={{ width: '100%', justifyContent: 'center', padding: '12px', borderStyle: 'dashed', marginTop: '8px', borderRadius: '12px', fontSize: '12px' }}
-                  onClick={() => setShowLibrary(true)}
-                >
-                  <Plus size={14} /> Add Action to Workflow
-                </button>
               </div>
+            </div>
+
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              padding: '12px 24px 24px 24px', 
+              flexShrink: 0
+            }}>
+              {/* Delete Flow Button (Left) */}
+              <button 
+                className="admin-btn-ghost" 
+                style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '12px 16px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px', 
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'white',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  flexShrink: 0
+                }}
+                onClick={() => {
+                  wfManager.deleteWorkflow(activeWorkflow.id);
+                  setWorkflows(wfManager.getWorkflows());
+                  setActiveWorkflow(null);
+                  setOriginalWorkflow(null);
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                }}
+              >
+                <Trash2 size={14} /> Delete Flow
+              </button>
+
+              {/* Add Action Button (Middle) */}
+              <button 
+                className="admin-btn-ghost" 
+                style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '12px 16px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px', 
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'white',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  flex: 1
+                }}
+                onClick={() => setShowLibrary(true)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                }}
+              >
+                <Plus size={14} /> Add Action
+              </button>
+
+              {/* Save Button (Right) */}
+              <button 
+                disabled={!hasChanges}
+                style={{ 
+                  flex: 1, 
+                  justifyContent: 'center', 
+                  padding: '12px', 
+                  border: hasChanges ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', 
+                  background: hasChanges ? '#1068EB' : 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '12px', 
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: hasChanges ? 'white' : 'rgba(255, 255, 255, 0.3)',
+                  cursor: hasChanges ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => {
+                  handleSave();
+                  setActiveWorkflow(null);
+                  setOriginalWorkflow(null);
+                }}
+                onMouseEnter={(e) => {
+                  if (hasChanges) {
+                    e.currentTarget.style.background = '#0e59c8';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (hasChanges) {
+                    e.currentTarget.style.background = '#1068EB';
+                  }
+                }}
+              >
+                Save
+              </button>
             </div>
 
             {/* Action Library Panel (Absolute Overlay) */}
@@ -754,7 +1049,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                   justifyContent: 'space-between', 
                   alignItems: 'center' 
                 }}>
-                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'white' }}>Action Library</div>
+                  <div style={{ fontWeight: 700, fontSize: '15px', color: 'white' }}>Action Library</div>
                   <button 
                     onClick={() => { setShowLibrary(false); setSearchQuery(''); }} 
                     style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
@@ -840,12 +1135,12 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                   boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)', 
                   border: '1px solid rgba(255,255,255,0.08)' 
                 }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
                     <Edit2 size={16} color="#3b82f6" /> Configure Step
                   </h3>
                   
                   <div style={{ marginBottom: '16px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Action</label>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Action</label>
                     <select 
                       className="admin-input" 
                       style={{ 
@@ -870,7 +1165,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
 
                   {(editingStep.expectedAction === 'input' || editingStep.expectedAction === 'select') && (
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: 800, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value to provide</label>
+                      <label style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value to provide</label>
                       <input 
                         className="admin-input" 
                         style={{ 
@@ -970,7 +1265,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
 
             <h2 style={{
               fontSize: '16px',
-              fontWeight: 800,
+              fontWeight: 700,
               color: '#ffffff',
               margin: '0 0 12px 0',
               lineHeight: '1.2'

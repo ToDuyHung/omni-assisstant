@@ -792,7 +792,7 @@ export default function App() {
                                 borderRadius: '50%', 
                                 background: 'rgba(59, 130, 246, 0.1)', 
                                 border: '1px solid rgba(59, 130, 246, 0.3)',
-                                color: '#60a5fa',
+                                color: '#B8D2F9',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
