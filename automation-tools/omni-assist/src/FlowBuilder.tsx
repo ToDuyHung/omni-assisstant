@@ -1,6 +1,6 @@
 import { 
   Plus, Trash2, 
-  Search, X, Settings, Zap, Edit2, ArrowLeft
+  Search, X, Settings, Zap, ArrowLeft, Check, Edit2
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { workflowConfig, studioConfig } from './persistence';
@@ -104,6 +104,8 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
   // Library & Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [pages, setPages] = useState<PageConfig[]>([]);
+
+  const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
 
   // Initialize and pre-populate default workflows if empty
   useEffect(() => {
@@ -273,17 +275,20 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
     }
   }, [showLibrary, activeWorkflow]);
 
+  const unfilteredActions = useMemo(() => {
+    return pages.flatMap(p => p.tasks.filter(t => t.steps.length > 0).map(t => ({ ...t, pageId: p.id, pageName: p.name })));
+  }, [pages]);
+
   const allActions = useMemo(() => {
-    const actions = pages.flatMap(p => p.tasks.filter(t => t.steps.length > 0).map(t => ({ ...t, pageId: p.id, pageName: p.name })));
-    if (!searchQuery.trim()) return actions;
+    if (!searchQuery.trim()) return unfilteredActions;
     
     const query = searchQuery.toLowerCase();
-    return actions.filter(a => 
+    return unfilteredActions.filter(a => 
       a.title.toLowerCase().includes(query) || 
       (a.description && a.description.toLowerCase().includes(query)) ||
       a.pageName.toLowerCase().includes(query)
     );
-  }, [pages, searchQuery]);
+  }, [unfilteredActions, searchQuery]);
 
   const handleCreateWorkflow = () => {
     const newWf: Workflow = {
@@ -315,6 +320,14 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
         });
       } catch (e) {
         console.warn("Failed to automatically publish workflow to backend service:", e);
+      }
+    } else {
+      try {
+        await fetch(`http://localhost:6789/api/unpublish/${updated.id}`, {
+          method: "POST"
+        });
+      } catch (e) {
+        console.warn("Failed to automatically unpublish workflow from backend service:", e);
       }
     }
   };
@@ -370,28 +383,41 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
       } catch (e) {
         console.warn("Failed to automatically publish workflow to backend service:", e);
       }
+    } else {
+      try {
+        await fetch(`http://localhost:6789/api/unpublish/${updated.id}`, {
+          method: "POST"
+        });
+      } catch (e) {
+        console.warn("Failed to automatically unpublish workflow from backend service:", e);
+      }
     }
   };
 
-  const handleAddStep = (action: any) => {
+
+  const handleAddMultipleSteps = (selectedActionsList: any[]) => {
     if (!activeWorkflow) return;
-    const newStep: WorkflowStep = {
-      id: `step-${Date.now()}`,
-      pageId: action.pageId,
-      actionId: action.id,
-      title: action.title || action.description,
-      executionMode: 'auto',
-      expectedAction: action.steps?.[0]?.expectedAction || action.expectedAction,
-      targetQuery: action.steps?.[0]?.targetQuery || action.targetQuery,
-      locators: action.steps?.[0]?.locators || action.locators,
-      overrideValue: action.steps?.[0]?.autoValue || action.autoValue
-    };
+    const baseTime = Date.now();
+    const newSteps: WorkflowStep[] = selectedActionsList.map((action, idx) => {
+      return {
+        id: `step-${baseTime}-${idx}`,
+        pageId: action.pageId,
+        actionId: action.id,
+        title: action.title || action.description,
+        executionMode: 'auto',
+        expectedAction: action.steps?.[0]?.expectedAction || action.expectedAction,
+        targetQuery: action.steps?.[0]?.targetQuery || action.targetQuery,
+        locators: action.steps?.[0]?.locators || action.locators,
+        overrideValue: action.steps?.[0]?.autoValue || action.autoValue
+      };
+    });
     setActiveWorkflow({
       ...activeWorkflow,
-      steps: [...activeWorkflow.steps, newStep]
+      steps: [...activeWorkflow.steps, ...newSteps]
     });
     setShowLibrary(false);
     setSearchQuery('');
+    setSelectedActionIds([]);
   };
 
   const updateStep = (updated: WorkflowStep) => {
@@ -725,6 +751,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                 {activeWorkflow.steps.map((step, idx) => {
                   const isDraggingThis = draggedIdx === idx;
                   const isDragOverThis = dragOverIdx === idx;
+                  const isEditingThis = editingStep && editingStep.id === step.id;
                   
                   let translateY = 0;
                   if (draggedIdx !== null && dragOverIdx !== null) {
@@ -769,6 +796,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                             e.preventDefault();
                             return;
                           }
+                          setEditingStep(null);
                           setDraggedIdx(idx);
                           e.dataTransfer.effectAllowed = 'move';
                         }}
@@ -779,8 +807,7 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                         }}
                         style={{
                           display: 'flex',
-                          gap: '16px',
-                          alignItems: 'center',
+                          flexDirection: 'column',
                           marginBottom: '12px',
                           position: 'relative',
                           background: isDraggingThis 
@@ -792,7 +819,9 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                             ? (dragOverIdx !== null ? '2px dashed rgba(59, 130, 246, 0.6)' : '1px dashed rgba(255, 255, 255, 0.1)') 
                             : isDragOverThis 
                               ? '1px solid rgba(59, 130, 246, 0.25)' 
-                              : '1px solid rgba(255, 255, 255, 0.08)',
+                              : isEditingThis
+                                ? '1px solid rgba(59, 130, 246, 0.3)'
+                                : '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '16px',
                           padding: '16px',
                           opacity: isDraggingThis ? 0.6 : 1,
@@ -801,115 +830,262 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                             ? '0 0 16px rgba(59, 130, 246, 0.15)' 
                             : isDragOverThis 
                               ? '0 4px 12px rgba(59, 130, 246, 0.08)' 
-                              : 'none',
+                              : isEditingThis
+                                ? '0 4px 20px rgba(0, 0, 0, 0.2)'
+                                : 'none',
                           transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                           cursor: 'default',
                           userSelect: 'none',
                           WebkitUserSelect: 'none'
                         }}
                       >
-                        {/* Drag Handle Icon (=) */}
-                        <div 
-                          data-drag-handle="true"
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            gap: '3px', 
-                            width: '12px', 
-                            opacity: 0.35, 
-                            cursor: 'grab',
-                            flexShrink: 0
-                          }}
-                        >
-                          <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
-                          <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
-                        </div>
+                        {/* Top Row: Main Details */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}>
+                          {/* Drag Handle Icon (=) */}
+                          <div 
+                            data-drag-handle="true"
+                            style={{ 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              gap: '3px', 
+                              width: '12px', 
+                              opacity: 0.35, 
+                              cursor: 'grab',
+                              flexShrink: 0
+                            }}
+                          >
+                            <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
+                            <div style={{ height: '2px', background: 'white', borderRadius: '1px' }} />
+                          </div>
 
-                        {/* Step Number Circle */}
-                        <div 
-                          draggable={false}
-                          style={{ 
-                            width: '32px', 
-                            height: '32px', 
-                            borderRadius: '50%', 
-                            background: 'rgba(59, 130, 246, 0.12)', 
-                            border: '1px solid rgba(59, 130, 246, 0.3)',
-                            color: '#B8D2F9', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            fontSize: '13px', 
-                            fontWeight: 700,
-                            flexShrink: 0
-                          }}
-                        >
-                          {idx + 1}
-                        </div>
-                        
-                        {/* Step Name & Sub-label */}
-                        <div style={{ flex: 1, overflow: 'hidden', paddingRight: '12px' }}>
-                          <div style={{ fontWeight: 600, fontSize: '14px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {step.title}
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}
-                            </span>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>·</span>
-                            <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: 600 }}>
-                              {(step.expectedAction || 'CLICK').toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {/* Action Buttons: Configure & Delete */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <button 
-                            className="admin-btn-ghost" 
+                          {/* Step Number Circle */}
+                          <div 
+                            draggable={false}
                             style={{ 
                               width: '32px', 
                               height: '32px', 
-                              borderRadius: '8px', 
-                              border: '1px solid rgba(255,255,255,0.12)', 
-                              background: 'rgba(255,255,255,0.02)',
+                              borderRadius: '50%', 
+                              background: 'rgba(59, 130, 246, 0.12)', 
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              color: '#B8D2F9', 
                               display: 'flex', 
                               alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              color: 'white',
-                              transition: 'all 0.2s',
-                              padding: 0
-                            }} 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingStep(step);
+                              justifyContent: 'center', 
+                              fontSize: '13px', 
+                              fontWeight: 700,
+                              flexShrink: 0
                             }}
                           >
-                            <Settings size={14} />
-                          </button>
-                          <button 
-                            className="admin-btn-ghost" 
-                            style={{ 
-                              border: 'none', 
-                              background: 'none', 
-                              cursor: 'pointer', 
-                              color: 'rgba(255,255,255,0.4)',
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              padding: '6px',
-                              transition: 'all 0.2s'
-                            }} 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteStep(step.id);
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                            {idx + 1}
+                          </div>
+                          
+                          {/* Step Name & Sub-label */}
+                          <div style={{ flex: 1, overflow: 'hidden', paddingRight: '12px' }}>
+                            <div style={{ fontWeight: 600, fontSize: '14px', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {step.title}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
+                              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                Page: {pages.find(p => p.id === step.pageId)?.name || 'Unknown'}
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>·</span>
+                              <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: 600 }}>
+                                {(step.expectedAction || 'CLICK').toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons: Configure & Delete */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <button 
+                              className="admin-btn-ghost" 
+                              style={{ 
+                                width: '32px', 
+                                height: '32px', 
+                                borderRadius: '8px', 
+                                border: isEditingThis 
+                                  ? '1px solid rgba(59, 130, 246, 0.5)' 
+                                  : '1px solid rgba(255,255,255,0.12)', 
+                                background: isEditingThis 
+                                  ? 'rgba(59, 130, 246, 0.1)' 
+                                  : 'rgba(255,255,255,0.02)',
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                color: isEditingThis ? '#60a5fa' : 'white',
+                                transition: 'all 0.2s',
+                                padding: 0
+                              }} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isEditingThis) {
+                                  setEditingStep(null);
+                                } else {
+                                  setEditingStep(step);
+                                }
+                              }}
+                            >
+                              <Settings size={14} />
+                            </button>
+                            <button 
+                              className="admin-btn-ghost" 
+                              style={{ 
+                                border: 'none', 
+                                background: 'none', 
+                                cursor: 'pointer', 
+                                color: 'rgba(255,255,255,0.4)',
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                padding: '6px',
+                                transition: 'all 0.2s'
+                              }} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteStep(step.id);
+                                if (isEditingThis) {
+                                  setEditingStep(null);
+                                }
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Inline Configuration Panel (Expandable) */}
+                        {isEditingThis && (
+                          <div style={{
+                            width: '100%',
+                            marginTop: '14px',
+                            paddingTop: '14px',
+                            borderTop: '1px solid rgba(255,255,255,0.08)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                          }}>
+                            {/* Configure Step Header */}
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px', 
+                              color: '#60a5fa', 
+                              fontSize: '11px', 
+                              fontWeight: 700, 
+                              textTransform: 'uppercase', 
+                              letterSpacing: '0.05em',
+                              marginBottom: '2px'
+                            }}>
+                              <Edit2 size={12} color="#60a5fa" /> Configure Step
+                            </div>
+                            {/* Expected Action Select */}
+                            <div>
+                              <label style={{ 
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                color: 'white', 
+                                display: 'block', 
+                                marginBottom: '6px', 
+                                letterSpacing: '0.02em' 
+                              }}>
+                                Expected Action
+                              </label>
+                              <select 
+                                className="admin-input" 
+                                style={{ 
+                                  width: '100%', 
+                                  cursor: 'pointer',
+                                  background: 'rgba(0,0,0,0.2)',
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  borderRadius: '8px',
+                                  color: 'white',
+                                  padding: '8px 12px',
+                                  fontSize: '13px',
+                                  boxSizing: 'border-box'
+                                }}
+                                value={editingStep.expectedAction || 'click'}
+                                onChange={e => setEditingStep({...editingStep, expectedAction: e.target.value})}
+                              >
+                                <option value="click" style={{ background: '#1e293b' }}>Click / Trigger</option>
+                                <option value="input" style={{ background: '#1e293b' }}>Type / Input Value</option>
+                                <option value="select" style={{ background: '#1e293b' }}>Select from Dropdown</option>
+                              </select>
+                            </div>
+
+                            {/* Value Input */}
+                            {(editingStep.expectedAction === 'input' || editingStep.expectedAction === 'select') && (
+                              <div>
+                                <label style={{ 
+                                  fontSize: '11px', 
+                                  fontWeight: 700, 
+                                  color: 'white', 
+                                  display: 'block', 
+                                  marginBottom: '6px', 
+                                  letterSpacing: '0.02em' 
+                                }}>
+                                  Value to provide
+                                </label>
+                                <input 
+                                  className="admin-input" 
+                                  style={{ 
+                                    width: '100%',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    padding: '8px 12px',
+                                    fontSize: '13px',
+                                    boxSizing: 'border-box'
+                                  }}
+                                  value={editingStep.overrideValue || ''}
+                                  onChange={e => setEditingStep({...editingStep, overrideValue: e.target.value})}
+                                  placeholder="Enter the value..."
+                                />
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                              <button 
+                                className="admin-btn-ghost"
+                                style={{ 
+                                  flex: 1, 
+                                  padding: '8px 12px', 
+                                  borderRadius: '8px', 
+                                  fontSize: '12px',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  background: 'rgba(255,255,255,0.05)',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                                onClick={() => setEditingStep(null)}
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                className="admin-btn-primary"
+                                style={{ 
+                                  flex: 1, 
+                                  padding: '8px 12px', 
+                                  borderRadius: '8px', 
+                                  fontSize: '12px', 
+                                  background: '#1068EB',
+                                  color: 'white',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                                onClick={() => updateStep(editingStep)}
+                              >
+                                Apply Changes
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -943,11 +1119,19 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                   transition: 'all 0.2s',
                   flexShrink: 0
                 }}
-                onClick={() => {
-                  wfManager.deleteWorkflow(activeWorkflow.id);
+                onClick={async () => {
+                  const idToDelete = activeWorkflow.id;
+                  wfManager.deleteWorkflow(idToDelete);
                   setWorkflows(wfManager.getWorkflows());
                   setActiveWorkflow(null);
                   setOriginalWorkflow(null);
+                  try {
+                    await fetch(`http://localhost:6789/api/unpublish/${idToDelete}`, {
+                      method: "POST"
+                    });
+                  } catch (e) {
+                    console.warn("Failed to automatically unpublish deleted workflow from backend service:", e);
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
@@ -1051,15 +1235,15 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                 }}>
                   <div style={{ fontWeight: 700, fontSize: '15px', color: 'white' }}>Action Library</div>
                   <button 
-                    onClick={() => { setShowLibrary(false); setSearchQuery(''); }} 
+                    onClick={() => { setShowLibrary(false); setSearchQuery(''); setSelectedActionIds([]); }} 
                     style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
                   >
                     <X size={18} />
                   </button>
                 </div>
-                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', paddingBottom: 0 }}>
                   <div style={{ position: 'relative', marginBottom: '14px' }}>
-                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+                    <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#ffffff', opacity: 0.8 }} />
                     <input 
                       className="admin-input" 
                       style={{ 
@@ -1078,33 +1262,88 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                     />
                   </div>
                   
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px' }}>
-                    {allActions.map(action => (
-                      <div 
-                        key={action.id} 
-                        className="wf-card" 
-                        style={{ 
-                          padding: '12px', 
-                          background: 'rgba(255,255,255,0.02)', 
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s'
-                        }} 
-                        onClick={() => handleAddStep(action)}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(59,130,246,0.05)';
-                          e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'white', marginBottom: '2px' }}>{action.title}</div>
-                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Page: {action.pageName}</div>
-                      </div>
-                    ))}
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px', paddingBottom: '16px' }}>
+                    {allActions.map(action => {
+                      const isSelected = selectedActionIds.includes(action.id);
+                      return (
+                        <div 
+                          key={action.id} 
+                          className="wf-card" 
+                          style={{ 
+                            padding: '12px', 
+                            background: 'rgba(255,255,255,0.02)', 
+                            border: isSelected 
+                              ? '1px solid rgba(16, 104, 235, 0.4)' 
+                              : '1px solid rgba(255,255,255,0.05)',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }} 
+                          onClick={() => {
+                            setSelectedActionIds(prev => 
+                              prev.includes(action.id) 
+                                ? prev.filter(id => id !== action.id) 
+                                : [...prev, action.id]
+                            );
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(59,130,246,0.05)';
+                              e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                            }
+                          }}
+                        >
+                          {/* Custom Checkbox */}
+                          <div style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '4px',
+                            background: isSelected ? '#1068EB' : 'rgba(255, 255, 255, 0.2)',
+                            border: isSelected ? '1px solid #1068EB' : '1px solid rgba(255, 255, 255, 0.08)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            transition: 'all 0.2s'
+                          }}>
+                            {isSelected && (
+                              <Check size={10} color="white" strokeWidth={3} />
+                            )}
+                          </div>
+
+                          {/* Action Details */}
+                          <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 600, fontSize: '13px', color: 'white', marginBottom: '6px' }}>{action.title}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', gap: '12px' }}>
+                              <span 
+                                style={{ 
+                                  color: 'rgba(255,255,255,0.5)', 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis', 
+                                  whiteSpace: 'nowrap',
+                                  flex: 1
+                                }}
+                                title={action.description || ''}
+                              >
+                                {action.description || ''}
+                              </span>
+                              <span style={{ color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, textAlign: 'right' }}>
+                                Page: {action.pageName}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     {allActions.length === 0 && (
                       <div style={{ textAlign: 'center', padding: '40px 20px', opacity: 0.3, fontSize: '12px' }}>
                         No actions found matching search.
@@ -1112,99 +1351,92 @@ export default function FlowBuilder({ onClose }: FlowBuilderProps) {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Step Configuration Modal (Absolute Overlay) */}
-            {editingStep && (
-              <div style={{ 
-                position: 'absolute', 
-                inset: 0, 
-                background: 'rgba(15, 23, 42, 0.9)', 
-                backdropFilter: 'blur(4px)',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                zIndex: 110 
-              }}>
+                {/* Library Footer Panel */}
                 <div style={{ 
-                  background: '#1e293b', 
-                  width: '320px', 
-                  borderRadius: '20px', 
-                  padding: '24px', 
-                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)', 
-                  border: '1px solid rgba(255,255,255,0.08)' 
+                  padding: '16px 20px', 
+                  borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
+                  display: 'flex', 
+                  gap: '12px',
+                  background: '#0f172a'
                 }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
-                    <Edit2 size={16} color="#3b82f6" /> Configure Step
-                  </h3>
-                  
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Action</label>
-                    <select 
-                      className="admin-input" 
-                      style={{ 
-                        width: '100%', 
-                        cursor: 'pointer',
-                        background: 'rgba(0,0,0,0.2)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: 'white',
-                        padding: '8px 12px',
-                        fontSize: '13px',
-                        boxSizing: 'border-box'
-                      }}
-                      value={editingStep.expectedAction || 'click'}
-                      onChange={e => setEditingStep({...editingStep, expectedAction: e.target.value})}
-                    >
-                      <option value="click" style={{ background: '#1e293b' }}>Click / Trigger</option>
-                      <option value="input" style={{ background: '#1e293b' }}>Type / Input Value</option>
-                      <option value="select" style={{ background: '#1e293b' }}>Select from Dropdown</option>
-                    </select>
-                  </div>
+                  {/* Cancel Button */}
+                  <button 
+                    className="admin-btn-ghost" 
+                    style={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '12px 16px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)', 
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px', 
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      flex: 1
+                    }}
+                    onClick={() => {
+                      setShowLibrary(false);
+                      setSearchQuery('');
+                      setSelectedActionIds([]);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                    }}
+                  >
+                    Cancel
+                  </button>
 
-                  {(editingStep.expectedAction === 'input' || editingStep.expectedAction === 'select') && (
-                    <div style={{ marginBottom: '20px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value to provide</label>
-                      <input 
-                        className="admin-input" 
-                        style={{ 
-                          width: '100%',
-                          background: 'rgba(0,0,0,0.2)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '8px',
-                          color: 'white',
-                          padding: '8px 12px',
-                          fontSize: '13px',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="e.g. Singapore"
-                        value={editingStep.overrideValue || ''}
-                        onChange={e => setEditingStep({...editingStep, overrideValue: e.target.value})}
-                        autoFocus
-                      />
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button 
-                      className="admin-btn admin-btn-ghost" 
-                      style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }} 
-                      onClick={() => setEditingStep(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      className="admin-btn admin-btn-primary" 
-                      style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }} 
-                      onClick={() => updateStep(editingStep)}
-                    >
-                      Apply
-                    </button>
-                  </div>
+                  {/* Confirm Button */}
+                  <button 
+                    disabled={selectedActionIds.length === 0}
+                    style={{ 
+                      flex: 1, 
+                      justifyContent: 'center', 
+                      padding: '12px', 
+                      border: selectedActionIds.length > 0 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)', 
+                      background: selectedActionIds.length > 0 ? '#1068EB' : 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '12px', 
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: selectedActionIds.length > 0 ? 'white' : 'rgba(255, 255, 255, 0.3)',
+                      cursor: selectedActionIds.length > 0 ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => {
+                      const actionsToAdd = unfilteredActions.filter(a => selectedActionIds.includes(a.id));
+                      handleAddMultipleSteps(actionsToAdd);
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedActionIds.length > 0) {
+                        e.currentTarget.style.background = '#0e59c8';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedActionIds.length > 0) {
+                        e.currentTarget.style.background = '#1068EB';
+                      }
+                    }}
+                  >
+                    Confirm
+                  </button>
                 </div>
               </div>
             )}
+
+
           </div>
         )}
       </div>

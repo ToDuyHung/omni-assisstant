@@ -82,6 +82,7 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('runtime');
   const [showGuideline, setShowGuideline] = useState(false);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const [engineState, setEngineState] = useState<WorkflowState>({ status: 'idle', currentStepIndex: 0, message: '' });
   
   const [status, setStatus] = useState<GuideStatus>('idle');
@@ -342,7 +343,7 @@ export default function App() {
               paddingTop: mode === 'workflow' ? '80px' : '0px',
               gap: mode === 'workflow' ? '24px' : '0px',
               background: 'rgba(15, 23, 42, 0.1)',
-              overflow: 'hidden',
+              overflow: mode === 'workflow' ? 'visible' : 'hidden',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
               {mode !== 'workflow' && (
@@ -478,6 +479,44 @@ export default function App() {
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Flow</span>
               </div>
 
+              {/* Tooltip for How to use (Only in workflow/flow mode) */}
+              {showHelpTooltip && mode === 'workflow' && (
+                <div style={{
+                  position: 'absolute',
+                  left: '27px', 
+                  bottom: '74px', 
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '6px',
+                  padding: '5px 8px',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  backdropFilter: 'blur(8px)'
+                }}>
+                  How to use this feature?
+                  {/* Tooltip Arrow */}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-4px',
+                    left: '21px', 
+                    transform: 'translateX(-50%) rotate(45deg)',
+                    width: '6px',
+                    height: '6px',
+                    background: 'rgba(59, 130, 246, 0.05)',
+                    borderRight: '1px solid rgba(59, 130, 246, 0.25)',
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.25)'
+                  }} />
+                </div>
+              )}
+
               {/* Bottom How to use */}
               <button 
                 onClick={() => setShowGuideline(true)}
@@ -490,7 +529,7 @@ export default function App() {
                   padding: mode === 'workflow' ? '0px' : '10px 12px',
                   background: 'rgba(59, 130, 246, 0.05)',
                   border: '1px solid rgba(59, 130, 246, 0.25)',
-                  borderRadius: mode === 'workflow' ? '50%' : '10px',
+                  borderRadius: '10px',
                   color: '#ffffff',
                   fontSize: '11px',
                   fontWeight: 600,
@@ -505,10 +544,12 @@ export default function App() {
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
                   e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.45)';
+                  setShowHelpTooltip(true);
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
                   e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+                  setShowHelpTooltip(false);
                 }}
               >
                 <HelpCircle size={14} /> 

@@ -30,16 +30,19 @@ class WorkflowStep(BaseModel):
     pageId: str
     title: str
     executionMode: str
-    expectedAction: str
-    targetQuery: str
-    locators: dict
+    expectedAction: Optional[str] = None
+    targetQuery: Optional[str] = None
+    locators: Optional[dict] = None
     overrideValue: Optional[str] = None
 
 class Workflow(BaseModel):
     id: str
     name: str
+    description: Optional[str] = None
     steps: List[WorkflowStep]
     isPublished: bool = True
+    createdAt: Optional[int] = None
+    updatedAt: Optional[int] = None
 
 class ChatRequest(BaseModel):
     message: str
@@ -80,6 +83,16 @@ async def publish_workflow(workflow: Workflow):
     
     save_db(db)
     return {"status": "success", "message": f"Workflow '{workflow.name}' published successfully."}
+
+@app.post("/api/unpublish/{workflow_id}")
+async def unpublish_workflow(workflow_id: str):
+    db = load_db()
+    initial_len = len(db)
+    db = [w for w in db if w["id"] != workflow_id]
+    if len(db) < initial_len:
+        save_db(db)
+        return {"status": "success", "message": f"Workflow with ID '{workflow_id}' unpublished successfully."}
+    return {"status": "success", "message": f"Workflow with ID '{workflow_id}' was not published."}
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):

@@ -1,7 +1,7 @@
 [
   {
     "id": "wf-1776944879278",
-    "name": "CREATE VIET'S REQUEST",
+    "name": "Create Viet's request",
     "steps": [
       {
         "id": "step-1776944968078",
@@ -183,12 +183,6 @@
         "overrideValue": "01/06/2026"
       }
     ],
-    "isPublished": true
-  },
-  {
-    "id": "wf-1779435451248",
-    "name": "Untitled Workflow",
-    "steps": [],
     "isPublished": true
   }
 ]
