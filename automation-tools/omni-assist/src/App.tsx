@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   Zap, X, Cpu, Trash2, Layout, CheckCircle2, Clock, 
-  Plus, StopCircle, Search, Save, Edit3, HelpCircle, Square
+  Plus, Search, Save, HelpCircle, Square
 } from 'lucide-react';
 import { guideEngine, type GuideStatus } from './guide'
 import { workflowEngine, type WorkflowState } from './workflow-engine'
@@ -18,6 +18,7 @@ import welcomeBg from './assets/welcome_bg.png';
 import botIcon from './assets/bot.svg';
 import playCircleIcon from './assets/play-circle.png';
 import widgetPng from './assets/widget.png';
+import videoRecorderIcon from './assets/video-recorder.png';
 
 const configManager = studioConfig(BUSINESS_SITE_SCHEMA);
 
@@ -215,7 +216,7 @@ export default function App() {
     inspector.current?.stop();
     setReviewTask({
       id: `task-${Date.now()}`,
-      title: `Recorded Workflow ${new Date().toLocaleTimeString()}`,
+      title: '',
       description: 'Recorded interaction sequence',
       steps: recordedSteps
     });
@@ -457,7 +458,7 @@ export default function App() {
                 className={`orbital-btn ${mode === 'runtime' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
                 style={mode === 'workflow' ? { position: 'relative', width: '66px', height: '66px' } : { left: '115px', top: '90px' }}
               >
-                <Zap size={20} strokeWidth={1.5} fill={mode === 'runtime' ? '#3b82f6' : 'none'} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
+                <Zap size={20} strokeWidth={1.5} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Run</span>
               </div>
 
@@ -563,7 +564,7 @@ export default function App() {
               display: 'flex', 
               flexDirection: 'column', 
               overflow: 'hidden',
-              padding: mode === 'workflow' ? '0px' : '24px',
+              padding: (mode === 'workflow' || (mode === 'studio' && showReview)) ? '0px' : '24px',
               background: 'rgba(15, 23, 42, 0.15)',
               position: 'relative'
             }}>
@@ -638,9 +639,9 @@ export default function App() {
                 ) : (
                   /* RUNNING ACTIVE STEP Lifecyle */
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>Executing</div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>EXECUTING WORKFLOW</div>
                     <div style={{ padding: '24px', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '20px', marginBottom: '20px', backdropFilter: 'blur(4px)' }}>
-                      <div style={{ fontWeight: 800, fontSize: '16px', color: '#60a5fa', marginBottom: '14px' }}>{activeTask?.title}</div>
+                      <div style={{ fontWeight: 800, fontSize: '16px', color: 'white', marginBottom: '14px' }}>{activeTask?.title}</div>
                       <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0', marginBottom: '24px' }}>{activeTask?.steps[currentStepIndex].instruction}</div>
                       
                       {activeTask?.steps[currentStepIndex].expectedAction === 'input' && (
@@ -732,11 +733,250 @@ export default function App() {
               ) : mode === 'studio' ? (
                 /* STUDIO recording mode container */
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  {!isRecording ? (
+                  {showReview ? (
+                    /* Review Automation Page - Styled Box Container */
+                    <div style={{ 
+                      flex: 1, 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      overflow: 'hidden', 
+                      position: 'relative',
+                      background: 'rgba(15, 23, 42, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '20px',
+                      margin: '16px',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)'
+                    }}>
+                      {/* Header Row (Sticky) */}
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        padding: '24px 24px 16px 24px',
+                        flexShrink: 0,
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <div style={{
+                          fontSize: '18px',
+                          fontWeight: 600,
+                          color: 'white',
+                          fontFamily: 'inherit'
+                        }}>
+                          Workflow Name
+                        </div>
+                        <input 
+                          className="omni-input"
+                          style={{
+                            width: '100%',
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            color: 'white',
+                            padding: '12px',
+                            margin: 0,
+                            boxSizing: 'border-box',
+                            outline: 'none',
+                            fontSize: '13px'
+                          }}
+                          value={reviewTask.title || ''} 
+                          onChange={(e) => setReviewTask({ ...reviewTask, title: e.target.value })} 
+                          placeholder="Enter workflow name"
+                        />
+                      </div>
+
+                      {/* Steps Captured Heading (Sticky) */}
+                      <div style={{ 
+                        padding: '12px 24px 0 24px', 
+                        flexShrink: 0 
+                      }}>
+                        <div style={{ 
+                          fontSize: '11px', 
+                          fontWeight: 800, 
+                          color: 'rgba(255,255,255,0.4)', 
+                          textTransform: 'uppercase', 
+                          letterSpacing: '0.05em' 
+                        }}>
+                          Steps Captured: {reviewTask.steps?.length}
+                        </div>
+                      </div>
+
+                      {/* List of Steps (Scrollable) */}
+                      <div style={{ 
+                        flex: 1, 
+                        padding: '12px 24px', 
+                        overflowY: 'auto' 
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+                          {reviewTask.steps?.map((step, idx) => {
+                            const isUnresolved = step.title.includes('(Unresolved Label)') || step.locators?.hint === '(Unresolved Label)';
+                            return (
+                              <div key={step.id} style={{ 
+                                background: isUnresolved ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)', 
+                                padding: '18px', 
+                                borderRadius: '16px', 
+                                border: isUnresolved ? '1.5px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.06)'
+                              }}>
+                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '14px' }}>
+                                   <div style={{ 
+                                     color: isUnresolved ? 'rgba(239, 68, 68, 0.8)' : 'rgba(255, 255, 255, 0.5)', 
+                                     fontSize: '14px', 
+                                     fontWeight: 500, 
+                                     fontStyle: 'normal',
+                                     flexShrink: 0,
+                                     lineHeight: '1'
+                                   }}>
+                                     {idx + 1}
+                                   </div>
+                                  <input 
+                                    style={{ background: 'none', border: 'none', color: 'white', fontWeight: 500, fontSize: '14px', width: '100%', outline: 'none', padding: 0, lineHeight: '1' }} 
+                                    value={step.title} 
+                                    onChange={(e) => {
+                                      const next = [...(reviewTask.steps || [])];
+                                      next[idx] = { ...step, title: e.target.value };
+                                      setReviewTask({ ...reviewTask, steps: next });
+                                    }} 
+                                  />
+                                  <button onClick={() => setReviewTask({ ...reviewTask, steps: reviewTask.steps?.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                </div>
+
+                                <input 
+                                  className="omni-input"
+                                  style={{ 
+                                    margin: '0 0 14px 0', 
+                                    fontSize: '12px', 
+                                    height: '36px',
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    padding: '8px 12px',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                  }}
+                                  value={step.instruction}
+                                  placeholder="Action instruction..."
+                                  onChange={(e) => {
+                                    const next = [...(reviewTask.steps || [])];
+                                    next[idx] = { ...step, instruction: e.target.value };
+                                    setReviewTask({ ...reviewTask, steps: next });
+                                  }}
+                                />
+
+                                <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <Search size={14} color="#60a5fa" />
+                                    <span style={{ 
+                                      fontSize: '12px', 
+                                      fontWeight: 600, 
+                                      color: '#60a5fa', 
+                                      fontStyle: 'normal'
+                                    }}>
+                                      Stable Field Identity
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input 
+                                      className="omni-input" 
+                                      style={{ 
+                                        marginTop: 0, 
+                                        height: '34px', 
+                                        fontSize: '12px',
+                                        background: 'rgba(0, 0, 0, 0.3)',
+                                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        padding: '8px 12px',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
+                                      }} 
+                                      value={step.locators?.hint === '(Unresolved Label)' ? '' : step.locators?.hint} 
+                                      placeholder="Enter Stable Label..." 
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const next = [...(reviewTask.steps || [])];
+                                        next[idx] = { ...step, locators: { ...step.locators, hint: val, semantic: `text=${val}` } };
+                                        setReviewTask({ ...reviewTask, steps: next });
+                                      }} 
+                                    />
+                                    <button onClick={() => (window as any).OMNI_DEBUG.testAndHighlight(step.locators?.hint, step.locators?.role)} style={{ padding: '0 14px', borderRadius: '8px', background: '#3b82f6', color: 'white', fontWeight: 800, fontSize: '11px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>Check</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Footer Row (Sticky) */}
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '12px', 
+                        padding: '12px 24px 24px 24px', 
+                        flexShrink: 0,
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <button 
+                          onClick={() => { setShowReview(false); visualHighlighter.clear(); }} 
+                          style={{ 
+                            flex: 1, 
+                            padding: '12px', 
+                            borderRadius: '12px', 
+                            border: '1px solid rgba(255, 255, 255, 0.08)', 
+                            background: 'rgba(255, 255, 255, 0.1)', 
+                            color: 'white', 
+                            fontWeight: 600, 
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                          }}
+                        >
+                          Discard
+                        </button>
+                        <button 
+                          onClick={saveReviewTask} 
+                          style={{ 
+                            flex: 2, 
+                            padding: '12px', 
+                            borderRadius: '12px', 
+                            border: 'none', 
+                            background: '#1068EB', 
+                            color: 'white', 
+                            fontWeight: 600, 
+                            fontSize: '12px',
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '6px', 
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 14px rgba(16, 104, 235, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#1d7bfd';
+                            e.currentTarget.style.boxShadow = '0 6px 18px rgba(16, 104, 235, 0.5)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#1068EB';
+                            e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 104, 235, 0.3)';
+                          }}
+                        >
+                          <Save size={14} /> Save Automation
+                        </button>
+                      </div>
+                    </div>
+                  ) : !isRecording ? (
                     <>
                       <div style={{ padding: '20px', background: 'rgba(59, 130, 246, 0.06)', borderRadius: '20px', marginBottom: '20px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                         <div style={{ fontWeight: 800, fontSize: '15px', color: 'white', marginBottom: '4px' }}>Workflow Studio</div>
-                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.4' }}>Record and manage custom automations easily.</div>
+                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.4' }}>Record and manage custom actions</div>
                         <button 
                           onClick={startRecording} 
                           style={{ 
@@ -756,44 +996,40 @@ export default function App() {
                             boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
                           }}
                         >
-                          <Plus size={18} /> Record New Automation
+                          <Plus size={16} /> Record New Action
                         </button>
                       </div>
 
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Captured on this page</div>
-                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>RECORDED ON THIS PAGE</div>
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', paddingTop: '2px' }}>
                         {matchingTasks.map((task: TaskConfig) => (
                           <div key={task.id} className="action-card" style={{ cursor: 'default' }}>
                             <div>
                               <div style={{ fontWeight: 700, fontSize: '14px', color: 'white' }}>{task.title}</div>
-                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>{task.steps.length} Step(s)</div>
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>{task.steps.length} step(s)</div>
                             </div>
-                            <button 
+                             <button 
                               onClick={() => deleteTask(task.id)} 
                               style={{ 
-                                width: '34px',
-                                height: '34px',
-                                borderRadius: '50%',
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                color: '#ef4444', 
+                                border: 'none', 
+                                background: 'none', 
                                 cursor: 'pointer', 
-                                display: 'flex',
-                                alignItems: 'center',
+                                color: 'rgba(255,255,255,0.4)',
+                                display: 'flex', 
+                                alignItems: 'center', 
                                 justifyContent: 'center',
+                                padding: '6px',
                                 transition: 'all 0.2s',
                                 flexShrink: 0
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
-                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                e.currentTarget.style.color = '#ffffff';
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                                e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
                               }}
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         ))}
@@ -808,7 +1044,19 @@ export default function App() {
                     /* Recording in progress steps overlay */
                     <div style={{ textAlign: 'center', paddingTop: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
                       <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', animation: 'pulse-record 2s infinite' }}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#ef4444' }} />
+                        <div style={{ 
+                          width: '30px', 
+                          height: '30px', 
+                          background: '#ef4444',
+                          WebkitMaskImage: `url(${videoRecorderIcon})`,
+                          maskImage: `url(${videoRecorderIcon})`,
+                          WebkitMaskRepeat: 'no-repeat',
+                          maskRepeat: 'no-repeat',
+                          WebkitMaskPosition: 'center',
+                          maskPosition: 'center',
+                          WebkitMaskSize: 'contain',
+                          maskSize: 'contain'
+                        }} />
                       </div>
                       <div style={{ fontWeight: 800, fontSize: '18px', color: 'white', marginBottom: '6px' }}>Recording...</div>
                       <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '20px' }}>Perform actions on the site to capture steps.</div>
@@ -828,18 +1076,11 @@ export default function App() {
                           {recordedSteps.map((step, idx) => (
                             <div key={step.id} style={{ fontSize: '13px', display: 'flex', gap: '12px', alignItems: 'center', color: '#e2e8f0', position: 'relative' }}>
                               <div style={{ 
-                                width: '22px', 
-                                height: '22px', 
-                                borderRadius: '50%', 
-                                background: 'rgba(59, 130, 246, 0.1)', 
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                color: '#B8D2F9',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                flexShrink: 0
+                                color: 'rgba(255,255,255,0.4)',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                width: '14px'
                               }}>
                                 {idx + 1}
                               </div>
@@ -867,7 +1108,7 @@ export default function App() {
                           boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
                         }}
                       >
-                        <StopCircle size={18} /> Stop Recording
+                        <Square size={12} fill="currentColor" /> Stop Recording
                       </button>
                     </div>
                   )}
@@ -877,137 +1118,6 @@ export default function App() {
               ) : null}
             </div>
           </div>
-
-          {/* Absolute Review screen overlay */}
-          {showReview && (
-            <div style={{ 
-              position: 'absolute', 
-              inset: 0, 
-              background: `#0f172a url(${welcomeBg}) no-repeat center center / cover`, 
-              zIndex: 100, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              padding: '24px', 
-              overflowY: 'auto' 
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <Edit3 size={24} color="#3b82f6" />
-                <div style={{ fontWeight: 800, fontSize: '20px', color: 'white' }}>Review Automation</div>
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Workflow Name</label>
-                <input 
-                  className="omni-input" 
-                  value={reviewTask.title || ''} 
-                  onChange={(e) => setReviewTask({ ...reviewTask, title: e.target.value })} 
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    padding: '12px',
-                    marginTop: '8px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Steps Captured ({reviewTask.steps?.length})</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
-                {reviewTask.steps?.map((step, idx) => {
-                  const isUnresolved = step.title.includes('(Unresolved Label)') || step.locators?.hint === '(Unresolved Label)';
-                  return (
-                    <div key={step.id} style={{ 
-                      background: isUnresolved ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)', 
-                      padding: '18px', 
-                      borderRadius: '16px', 
-                      border: isUnresolved ? '1.5px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.06)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isUnresolved ? '#ef4444' : '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>{idx + 1}</div>
-                        <input 
-                          style={{ background: 'none', border: 'none', color: 'white', fontWeight: 700, fontSize: '14px', width: '100%', outline: 'none' }} 
-                          value={step.title} 
-                          onChange={(e) => {
-                            const next = [...(reviewTask.steps || [])];
-                            next[idx] = { ...step, title: e.target.value };
-                            setReviewTask({ ...reviewTask, steps: next });
-                          }} 
-                        />
-                        <button onClick={() => setReviewTask({ ...reviewTask, steps: reviewTask.steps?.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                      </div>
-
-                      <input 
-                        className="omni-input"
-                        style={{ 
-                          margin: '0 0 14px 0', 
-                          fontSize: '12px', 
-                          height: '36px',
-                          background: 'rgba(0,0,0,0.3)',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
-                          borderRadius: '8px',
-                          color: 'white',
-                          padding: '8px 12px',
-                          width: '100%',
-                          boxSizing: 'border-box'
-                        }}
-                        value={step.instruction}
-                        placeholder="Action instruction..."
-                        onChange={(e) => {
-                          const next = [...(reviewTask.steps || [])];
-                          next[idx] = { ...step, instruction: e.target.value };
-                          setReviewTask({ ...reviewTask, steps: next });
-                        }}
-                      />
-
-                      <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                          <Search size={14} color="#60a5fa" />
-                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stable Field Identity</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <input 
-                            className="omni-input" 
-                            style={{ 
-                              marginTop: 0, 
-                              height: '34px', 
-                              fontSize: '12px',
-                              background: 'rgba(0, 0, 0, 0.3)',
-                              border: '1px solid rgba(255, 255, 255, 0.08)',
-                              borderRadius: '8px',
-                              color: 'white',
-                              padding: '8px 12px',
-                              width: '100%',
-                              boxSizing: 'border-box'
-                            }} 
-                            value={step.locators?.hint === '(Unresolved Label)' ? '' : step.locators?.hint} 
-                            placeholder="Enter Stable Label..." 
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const next = [...(reviewTask.steps || [])];
-                              next[idx] = { ...step, locators: { ...step.locators, hint: val, semantic: `text=${val}` } };
-                              setReviewTask({ ...reviewTask, steps: next });
-                            }} 
-                          />
-                          <button onClick={() => (window as any).OMNI_DEBUG.testAndHighlight(step.locators?.hint, step.locators?.role)} style={{ padding: '0 14px', borderRadius: '8px', background: '#3b82f6', color: 'white', fontWeight: 800, fontSize: '11px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }}>Check</button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <button onClick={() => { setShowReview(false); visualHighlighter.clear(); }} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Discard</button>
-                <button onClick={saveReviewTask} style={{ flex: 2, padding: '14px', borderRadius: '12px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)' }}>
-                  <Save size={18} /> Save Automation
-                </button>
-              </div>
-            </div>
-          )}
 
           {showGuideline && (
             <div style={{
