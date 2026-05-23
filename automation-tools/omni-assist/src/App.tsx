@@ -458,7 +458,7 @@ export default function App() {
                 className={`orbital-btn ${mode === 'runtime' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
                 style={mode === 'workflow' ? { position: 'relative', width: '66px', height: '66px' } : { left: '115px', top: '90px' }}
               >
-                <Zap size={20} strokeWidth={1.5} fill={mode === 'runtime' ? '#3b82f6' : 'none'} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
+                <Zap size={20} strokeWidth={1.5} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Run</span>
               </div>
 
@@ -639,9 +639,9 @@ export default function App() {
                 ) : (
                   /* RUNNING ACTIVE STEP Lifecyle */
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>Executing</div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.1em' }}>EXECUTING WORKFLOW</div>
                     <div style={{ padding: '24px', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '20px', marginBottom: '20px', backdropFilter: 'blur(4px)' }}>
-                      <div style={{ fontWeight: 800, fontSize: '16px', color: '#60a5fa', marginBottom: '14px' }}>{activeTask?.title}</div>
+                      <div style={{ fontWeight: 800, fontSize: '16px', color: 'white', marginBottom: '14px' }}>{activeTask?.title}</div>
                       <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0', marginBottom: '24px' }}>{activeTask?.steps[currentStepIndex].instruction}</div>
                       
                       {activeTask?.steps[currentStepIndex].expectedAction === 'input' && (
@@ -1001,7 +1001,7 @@ export default function App() {
                       </div>
 
                       <div style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>RECORDED ON THIS PAGE</div>
-                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', paddingTop: '2px' }}>
                         {matchingTasks.map((task: TaskConfig) => (
                           <div key={task.id} className="action-card" style={{ cursor: 'default' }}>
                             <div>
