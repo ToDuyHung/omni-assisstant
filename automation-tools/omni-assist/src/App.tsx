@@ -82,6 +82,7 @@ export default function App() {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('runtime');
   const [showGuideline, setShowGuideline] = useState(false);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const [engineState, setEngineState] = useState<WorkflowState>({ status: 'idle', currentStepIndex: 0, message: '' });
   
   const [status, setStatus] = useState<GuideStatus>('idle');
@@ -333,43 +334,51 @@ export default function App() {
           <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {/* Left Column - Orbital Navigation */}
             <div style={{ 
-              width: '220px', 
+              width: mode === 'workflow' ? '96px' : '220px', 
               borderRight: 'none',
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
+              alignItems: 'center',
+              paddingTop: mode === 'workflow' ? '80px' : '0px',
+              gap: mode === 'workflow' ? '24px' : '0px',
               background: 'rgba(15, 23, 42, 0.1)',
-              overflow: 'hidden'
+              overflow: mode === 'workflow' ? 'visible' : 'hidden',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
-              {/* Floating shadow under robot */}
-              <div style={{
-                position: 'absolute',
-                left: '34px',
-                top: '268px',
-                width: '60px',
-                height: '14px',
-                background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0) 70%)',
-                borderRadius: '50%',
-                filter: 'blur(3px)',
-                zIndex: 1
-              }} />
+              {mode !== 'workflow' && (
+                <>
+                  {/* Floating shadow under robot */}
+                  <div style={{
+                    position: 'absolute',
+                    left: '34px',
+                    top: '268px',
+                    width: '60px',
+                    height: '14px',
+                    background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0) 70%)',
+                    borderRadius: '50%',
+                    filter: 'blur(3px)',
+                    zIndex: 1
+                  }} />
 
-              {/* Character Robot */}
-              <img 
-                src={botIcon} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '28px', 
-                  top: '224px', 
-                  transform: 'translateY(-50%)',
-                  width: '72px', 
-                  height: 'auto',
-                  filter: 'drop-shadow(0 10px 20px rgba(59, 130, 246, 0.35))',
-                  zIndex: 2,
-                  animation: 'omni-float 3s ease-in-out infinite'
-                }} 
-                alt="Robot Character" 
-              />
+                  {/* Character Robot */}
+                  <img 
+                    src={botIcon} 
+                    style={{ 
+                      position: 'absolute', 
+                      left: '28px', 
+                      top: '224px', 
+                      transform: 'translateY(-50%)',
+                      width: '72px', 
+                      height: 'auto',
+                      filter: 'drop-shadow(0 10px 20px rgba(59, 130, 246, 0.35))',
+                      zIndex: 2,
+                      animation: 'omni-float 3s ease-in-out infinite'
+                    }} 
+                    alt="Robot Character" 
+                  />
+                </>
+              )}
 
               {/* Orbital Navigation Buttons */}
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -446,7 +455,7 @@ export default function App() {
               <div 
                 onClick={() => setMode('runtime')} 
                 className={`orbital-btn ${mode === 'runtime' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
-                style={{ left: '115px', top: '90px' }}
+                style={mode === 'workflow' ? { position: 'relative', width: '66px', height: '66px' } : { left: '115px', top: '90px' }}
               >
                 <Zap size={20} strokeWidth={1.5} fill={mode === 'runtime' ? '#3b82f6' : 'none'} style={{ filter: mode === 'runtime' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Run</span>
@@ -455,7 +464,7 @@ export default function App() {
               <div 
                 onClick={() => setMode('studio')} 
                 className={`orbital-btn ${mode === 'studio' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
-                style={{ left: '143px', top: '185px' }}
+                style={mode === 'workflow' ? { position: 'relative', width: '66px', height: '66px' } : { left: '143px', top: '185px' }}
               >
                 <Cpu size={20} strokeWidth={1.5} style={{ filter: mode === 'studio' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Studio</span>
@@ -464,21 +473,60 @@ export default function App() {
               <div 
                 onClick={() => setMode('workflow')} 
                 className={`orbital-btn ${mode === 'workflow' ? 'orbital-btn-active' : 'orbital-btn-inactive'}`}
-                style={{ left: '115px', top: '280px' }}
+                style={mode === 'workflow' ? { position: 'relative', width: '66px', height: '66px' } : { left: '115px', top: '280px' }}
               >
                 <Layout size={20} strokeWidth={1.5} style={{ filter: mode === 'workflow' ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' : 'none' }} />
                 <span style={{ fontSize: '11px', fontWeight: 600, marginTop: '4px' }}>Flow</span>
               </div>
+
+              {/* Tooltip for How to use (Only in workflow/flow mode) */}
+              {showHelpTooltip && mode === 'workflow' && (
+                <div style={{
+                  position: 'absolute',
+                  left: '27px', 
+                  bottom: '74px', 
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '6px',
+                  padding: '5px 8px',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  backdropFilter: 'blur(8px)'
+                }}>
+                  How to use this feature?
+                  {/* Tooltip Arrow */}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-4px',
+                    left: '21px', 
+                    transform: 'translateX(-50%) rotate(45deg)',
+                    width: '6px',
+                    height: '6px',
+                    background: 'rgba(59, 130, 246, 0.05)',
+                    borderRight: '1px solid rgba(59, 130, 246, 0.25)',
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.25)'
+                  }} />
+                </div>
+              )}
 
               {/* Bottom How to use */}
               <button 
                 onClick={() => setShowGuideline(true)}
                 style={{
                   position: 'absolute',
-                  left: '17px',
+                  left: mode === 'workflow' ? '27px' : '17px',
                   bottom: '24px',
-                  width: '186px',
-                  padding: '10px 12px',
+                  width: mode === 'workflow' ? '42px' : '186px',
+                  height: mode === 'workflow' ? '42px' : 'auto',
+                  padding: mode === 'workflow' ? '0px' : '10px 12px',
                   background: 'rgba(59, 130, 246, 0.05)',
                   border: '1px solid rgba(59, 130, 246, 0.25)',
                   borderRadius: '10px',
@@ -490,19 +538,22 @@ export default function App() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  transition: 'all 0.2s',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
                   e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.45)';
+                  setShowHelpTooltip(true);
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
                   e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+                  setShowHelpTooltip(false);
                 }}
               >
-                <HelpCircle size={14} /> How to use this feature?
+                <HelpCircle size={14} /> 
+                {mode !== 'workflow' && " How to use this feature?"}
               </button>
             </div>
 
@@ -512,7 +563,7 @@ export default function App() {
               display: 'flex', 
               flexDirection: 'column', 
               overflow: 'hidden',
-              padding: '24px',
+              padding: mode === 'workflow' ? '0px' : '24px',
               background: 'rgba(15, 23, 42, 0.15)',
               position: 'relative'
             }}>
@@ -782,7 +833,7 @@ export default function App() {
                                 borderRadius: '50%', 
                                 background: 'rgba(59, 130, 246, 0.1)', 
                                 border: '1px solid rgba(59, 130, 246, 0.3)',
-                                color: '#60a5fa',
+                                color: '#B8D2F9',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -821,6 +872,8 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              ) : mode === 'workflow' ? (
+                <FlowBuilder onClose={() => setMode('runtime')} />
               ) : null}
             </div>
           </div>
@@ -1092,7 +1145,6 @@ export default function App() {
         </div>
       )}
 
-      {mode === 'workflow' && <FlowBuilder onClose={() => setMode('runtime')} />}
 
       {engineState.status !== 'idle' && (
         <div style={{ position: 'fixed', bottom: '120px', right: '40px', width: '320px', background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '20px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', padding: '24px', zIndex: 2147483647 }}>
